@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "test": "vitest run",
     "lint": "tsc --noEmit",
     "build": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy"
@@ -14,7 +15,11 @@
     "hono": "^4.7.5"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.14.0",
     "@cloudflare/workers-types": "^4.20250327.0",
+    "@vitest/runner": "^4.1.2",
+    "@vitest/snapshot": "^4.1.2",
+    "vitest": "^4.1.2",
     "wrangler": "^4.10.0"
   }
 }

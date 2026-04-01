@@ -2,6 +2,9 @@ name = "libroaozora-workers"
 main = "src/index.ts"
 compatibility_date = "2026-01-01"
 
+[triggers]
+crons = ["0 3 * * *"]
+
 [[kv_namespaces]]
 binding = "KV"
 id = "<your-kv-id>"
