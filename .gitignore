@@ -1,5 +1,6 @@
 .docs/
 .serena/
+.specify/
 node_modules/
 dist/
 *.tsbuildinfo
