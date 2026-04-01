@@ -11,7 +11,7 @@ export async function fetchAndParseCSV(): Promise<ParseResult> {
   }
 
   const data = new Uint8Array(await response.arrayBuffer())
-  const decompressed = decompress(data)
+  const decompressed = decompress(data, ".csv")
   const csvText = new TextDecoder().decode(decompressed)
 
   return parseCSV(csvText)

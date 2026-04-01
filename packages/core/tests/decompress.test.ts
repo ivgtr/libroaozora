@@ -7,7 +7,7 @@ describe("decompress", () => {
     const original = "こんにちは世界"
     const zip = zipSync({ "test.txt": strToU8(original) })
 
-    const result = decompress(new Uint8Array(zip))
+    const result = decompress(new Uint8Array(zip), ".txt")
 
     const decoded = new TextDecoder("utf-8").decode(result)
     expect(decoded).toBe(original)
@@ -16,7 +16,7 @@ describe("decompress", () => {
   it("corrupted zip data — throws an error", () => {
     const corrupted = new Uint8Array([0x00, 0x01, 0x02, 0x03])
 
-    expect(() => decompress(corrupted)).toThrow()
+    expect(() => decompress(corrupted, ".txt")).toThrow()
   })
 
   it("multi-file zip — returns only the .txt content", () => {
@@ -28,7 +28,7 @@ describe("decompress", () => {
       "image.png": new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
     })
 
-    const result = decompress(new Uint8Array(zip))
+    const result = decompress(new Uint8Array(zip), ".txt")
 
     const decoded = new TextDecoder("utf-8").decode(result)
     expect(decoded).toBe(txtContent)
@@ -40,7 +40,7 @@ describe("decompress", () => {
       "a_story.txt": strToU8("first"),
     })
 
-    const result = decompress(new Uint8Array(zip))
+    const result = decompress(new Uint8Array(zip), ".txt")
     const decoded = new TextDecoder("utf-8").decode(result)
     expect(decoded).toBe("first")
   })
@@ -51,6 +51,6 @@ describe("decompress", () => {
       "data.csv": strToU8("a,b,c"),
     })
 
-    expect(() => decompress(new Uint8Array(zip))).toThrow()
+    expect(() => decompress(new Uint8Array(zip), ".txt")).toThrow()
   })
 })
