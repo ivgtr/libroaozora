@@ -1,13 +1,11 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "composite": true,
     "outDir": "dist",
     "rootDir": "src",
+    "noEmit": true,
     "types": ["@cloudflare/workers-types"]
   },
-  "include": ["src"],
-  "references": [
-    { "path": "../core" }
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist"]
 }

@@ -12,12 +12,19 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "build": "tsup src/index.ts --format esm,cjs --dts --tsconfig tsconfig.build.json",
+    "lint": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "d3-dsv": "^3.0.1",
     "fflate": "^0.8.2"
+  },
+  "devDependencies": {
+    "@types/d3-dsv": "^3.0.7"
   }
 }

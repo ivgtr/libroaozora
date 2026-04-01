@@ -12,7 +12,7 @@
     "build": "pnpm -r build",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "tsc --noEmit"
+    "lint": "pnpm -r --parallel lint"
   },
   "devDependencies": {
     "typescript": "^5.8.2",

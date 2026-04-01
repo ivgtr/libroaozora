@@ -13,8 +13,5 @@
     "declarationMap": true,
     "sourceMap": true
   },
-  "references": [
-    { "path": "packages/core" },
-    { "path": "packages/workers" }
-  ]
+  "exclude": ["**/dist", "**/node_modules"]
 }
