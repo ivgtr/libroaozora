@@ -10,7 +10,7 @@ export type ErrorCode =
   | "BAD_REQUEST"
   | "INTERNAL_ERROR"
   | "NOT_SUPPORTED"
-  | "DB_NOT_READY"
+  | "SERVICE_UNAVAILABLE"
 
 // --- Entity Types ---
 
