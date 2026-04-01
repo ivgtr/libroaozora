@@ -1,9 +1,7 @@
-import { describe, it, expect, vi, beforeAll } from "vitest"
+import { describe, it, expect, beforeAll } from "vitest"
 import { env, exports } from "cloudflare:workers"
 import type { SearchResult, Work, Person, ErrorResponse } from "@libroaozora/core"
 import { seedKV } from "../fixtures/seed"
-
-vi.mock("../../src/lib/csv-fetcher", () => ({ fetchAndParseCSV: vi.fn() }))
 
 beforeAll(async () => {
   await seedKV(env.KV)

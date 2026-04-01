@@ -21,7 +21,7 @@ const statusMap: Record<ErrorCode, number> = {
   BAD_REQUEST: 400,
   INTERNAL_ERROR: 500,
   NOT_SUPPORTED: 501,
-  DB_NOT_READY: 503,
+  SERVICE_UNAVAILABLE: 503,
 }
 
 export function throwHttpError(code: ErrorCode, message: string): never {

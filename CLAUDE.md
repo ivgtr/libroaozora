@@ -9,16 +9,17 @@ pnpm workspace によるモノレポ。依存は常に一方向（`workers → c
 | パッケージ | 説明 |
 |---|---|
 | `@libroaozora/core` | 共通基盤（型定義・CSVパーサー・zip展開・Shift-JIS変換・フォーマッター） |
-| `@libroaozora/workers` | Cloudflare Workers 実装（Hono + KV） |
+| `@libroaozora/workers` | Cloudflare Workers 実装（Hono + KV + R2） |
 
 ## 技術スタック
 
 - **言語**: TypeScript（strict mode）
 - **パッケージ管理**: pnpm workspace
 - **ビルド**: tsup（ESM + CJS デュアル出力）
-- **テスト**: Vitest
-- **HTTP**: Hono
-- **ランタイム**: Cloudflare Workers（workers）/ Node.js（server, 将来）
+- **テスト**: Vitest + @cloudflare/vitest-pool-workers
+- **HTTP**: Hono v4
+- **ランタイム**: Cloudflare Workers
+- **ストレージ**: Cloudflare KV（ホットキャッシュ）+ R2（原本ストア）
 - **zip展開**: fflate（WASM不要・Workers対応）
 
 ## 開発コマンド
@@ -48,11 +49,10 @@ pnpm lint         # 型チェック
 - 著作権存続作品の本文は提供しない（`copyrightFlag: true` → 403）
 - workers での全文検索は 501 Not Implemented を返す
 
+
 ## Active Technologies
-- TypeScript 5.8 (strict mode) + Hono v4.7.5, @libroaozora/core (workspace), fflate, d3-dsv (003-workers-edge-api)
-- Cloudflare Workers KV（メタデータ 3-5MB + 本文テキスト） (003-workers-edge-api)
-- TypeScript 5.8 (strict mode) + Hono v4.7.5, @libroaozora/core (workspace), @cloudflare/vitest-pool-workers ^0.14.0 (004-workers-test-setup)
-- Cloudflare Workers KV（テスト時はインメモリ） (004-workers-test-setup)
+- TypeScript 5.8 (strict mode) + Hono 4.7, fflate 0.8, wrangler 4.10, @cloudflare/vitest-pool-workers 0.14 (006-external-metadata-sync)
+- Cloudflare KV（TTL 3 日）+ R2（永続ストア） (006-external-metadata-sync)
 
 ## Recent Changes
-- 003-workers-edge-api: Added TypeScript 5.8 (strict mode) + Hono v4.7.5, @libroaozora/core (workspace), fflate, d3-dsv
+- 006-external-metadata-sync: Added TypeScript 5.8 (strict mode) + Hono 4.7, fflate 0.8, wrangler 4.10, @cloudflare/vitest-pool-workers 0.14

@@ -73,7 +73,7 @@ works.get("/works", async (c) => {
   if (published_before) params.published_before = published_before
   if (copyright) params.copyright = copyright
 
-  const allWorks = await getWorks(c.env.KV)
+  const allWorks = await getWorks(c.env)
   const filtered = filterWorks(allWorks, params)
   const sorted = sortWorks(filtered, sort, order)
   const result = paginate(sorted, page, perPage)
@@ -84,7 +84,7 @@ works.get("/works", async (c) => {
 // T013: GET /works/:id (work detail)
 works.get("/works/:id", async (c) => {
   const id = c.req.param("id")
-  const allWorks = await getWorks(c.env.KV)
+  const allWorks = await getWorks(c.env)
   const work = allWorks.find((w) => w.id === id)
 
   if (!work) {
@@ -110,7 +110,7 @@ works.get("/works/:id/content", async (c) => {
     throwHttpError("BAD_REQUEST", `Invalid format: ${format}`)
   }
 
-  const allWorks = await getWorks(c.env.KV)
+  const allWorks = await getWorks(c.env)
   const work = allWorks.find((w) => w.id === id)
 
   if (!work) {
@@ -130,7 +130,7 @@ works.get("/works/:id/content", async (c) => {
     throwHttpError("NOT_FOUND", "Content source not available for this work")
   }
 
-  const { text, cacheHit } = await getContent(id, work.sourceUrls.text, c.env.KV)
+  const { text, cacheHit } = await getContent(id, work.sourceUrls.text, c.env)
   const content = formatContent(text, format as ContentFormat)
 
   c.header("X-Cache-Status", cacheHit ? "HIT" : "MISS")

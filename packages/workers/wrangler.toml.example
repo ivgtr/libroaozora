@@ -1,0 +1,11 @@
+name = "libroaozora"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "<YOUR_KV_NAMESPACE_ID>"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "libroaozora-data"

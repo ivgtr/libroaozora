@@ -1,4 +1,10 @@
 import type { Work, Person, PersonRef } from "@libroaozora/core"
+import {
+  METADATA_R2_KEY,
+  META_WORKS_KEY,
+  META_PERSONS_KEY,
+  META_SYNCED_AT_KEY,
+} from "../../src/lib/constants"
 
 // --- Person References (for Work.authors) ---
 
@@ -137,8 +143,18 @@ export const SEED_WORKS: Work[] = [W1, W2, W3, W4, W5]
 export const SEED_PERSONS: Person[] = [P1, P2, P3]
 export const SEED_SYNCED_AT = "2026-04-01T00:00:00Z"
 
+export const SEED_CONTENT_ZIP = new Uint8Array([0x50, 0x4b, 0x03, 0x04])
+export const SEED_METADATA_JSON = JSON.stringify({ works: SEED_WORKS, persons: SEED_PERSONS, syncedAt: SEED_SYNCED_AT })
+
+export { METADATA_R2_KEY, META_WORKS_KEY, META_PERSONS_KEY, META_SYNCED_AT_KEY }
+
 export async function seedKV(kv: KVNamespace): Promise<void> {
-  await kv.put("meta:works", JSON.stringify(SEED_WORKS))
-  await kv.put("meta:persons", JSON.stringify(SEED_PERSONS))
-  await kv.put("meta:syncedAt", SEED_SYNCED_AT)
+  await kv.put(META_WORKS_KEY, JSON.stringify(SEED_WORKS))
+  await kv.put(META_PERSONS_KEY, JSON.stringify(SEED_PERSONS))
+  await kv.put(META_SYNCED_AT_KEY, SEED_SYNCED_AT)
+}
+
+export async function seedR2(r2: R2Bucket): Promise<void> {
+  await r2.put("cards/000001/files/001000_ruby.zip", SEED_CONTENT_ZIP)
+  await r2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
 }
