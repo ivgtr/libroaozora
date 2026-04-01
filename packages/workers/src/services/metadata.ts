@@ -1,71 +1,67 @@
 import type { Work, Person } from "@libroaozora/core"
 import type { Env } from "../env"
-import { fetchCSVZip, parseCSVZip } from "../lib/csv-fetcher"
+import { throwHttpError } from "../errors"
+import {
+  METADATA_R2_KEY,
+  META_WORKS_KEY,
+  META_PERSONS_KEY,
+  META_SYNCED_AT_KEY,
+  METADATA_TTL,
+} from "../lib/constants"
 
-const TTL = 259200
-const METADATA_R2_KEY = "metadata/list_person_all_extended_utf8.zip"
-
-async function writeMetadata(
-  kv: KVNamespace,
-  works: Work[],
-  persons: Person[],
-): Promise<void> {
-  await Promise.all([
-    kv.put("meta:works", JSON.stringify(works), { expirationTtl: TTL }),
-    kv.put("meta:persons", JSON.stringify(persons), { expirationTtl: TTL }),
-  ])
+export type Metadata = {
+  works: Work[]
+  persons: Person[]
+  syncedAt: string | null
 }
 
-async function restoreMetadata(
-  zipData: Uint8Array,
-  env: Env,
-): Promise<{ works: Work[]; persons: Person[] }> {
-  const { works, persons } = parseCSVZip(zipData)
-  await writeMetadata(env.KV, works, persons)
-  return { works, persons }
+type MetadataSnapshot = {
+  works: Work[]
+  persons: Person[]
+  syncedAt: string
 }
 
-async function fetchAndSyncMetadata(
-  env: Env,
-): Promise<{ works: Work[]; persons: Person[] }> {
-  const rawZip = await fetchCSVZip()
-  const result = await restoreMetadata(rawZip, env)
-
-  try {
-    await env.R2.put(METADATA_R2_KEY, rawZip)
-  } catch {
-    // best-effort: R2 write failure does not block
+function parseMetadataJson(text: string): MetadataSnapshot {
+  const data = JSON.parse(text) as Record<string, unknown>
+  if (!Array.isArray(data.works) || !Array.isArray(data.persons) || typeof data.syncedAt !== "string") {
+    throw new Error("Invalid metadata shape")
   }
-
-  await env.KV.put("meta:syncedAt", new Date().toISOString())
-
-  return result
+  return data as unknown as MetadataSnapshot
 }
 
-export async function getMetadata(
-  env: Env,
-): Promise<{ works: Work[]; persons: Person[] }> {
-  const [cachedWorks, cachedPersons] = await Promise.all([
-    env.KV.get<Work[]>("meta:works", "json"),
-    env.KV.get<Person[]>("meta:persons", "json"),
+export async function getMetadata(env: Env): Promise<Metadata> {
+  const [cachedWorks, cachedPersons, cachedSyncedAt] = await Promise.all([
+    env.KV.get<Work[]>(META_WORKS_KEY, "json"),
+    env.KV.get<Person[]>(META_PERSONS_KEY, "json"),
+    env.KV.get(META_SYNCED_AT_KEY),
   ])
   if (cachedWorks !== null && cachedPersons !== null) {
-    return { works: cachedWorks, persons: cachedPersons }
+    return { works: cachedWorks, persons: cachedPersons, syncedAt: cachedSyncedAt }
   }
 
   const r2Object = await env.R2.get(METADATA_R2_KEY)
   if (r2Object !== null) {
+    let snapshot: MetadataSnapshot
     try {
-      const zipData = new Uint8Array(await r2Object.arrayBuffer())
-      const { works, persons } = parseCSVZip(zipData)
-      try { await writeMetadata(env.KV, works, persons) } catch {}
-      return { works, persons }
-    } catch {
+      snapshot = parseMetadataJson(await r2Object.text())
+    } catch (e) {
+      console.error("R2 metadata corrupted, deleting:", e)
       try { await env.R2.delete(METADATA_R2_KEY) } catch {}
+      throwHttpError("SERVICE_UNAVAILABLE", "Metadata not synced")
     }
+
+    try {
+      await Promise.all([
+        env.KV.put(META_WORKS_KEY, JSON.stringify(snapshot.works), { expirationTtl: METADATA_TTL }),
+        env.KV.put(META_PERSONS_KEY, JSON.stringify(snapshot.persons), { expirationTtl: METADATA_TTL }),
+        env.KV.put(META_SYNCED_AT_KEY, snapshot.syncedAt),
+      ])
+    } catch {}
+
+    return snapshot
   }
 
-  return fetchAndSyncMetadata(env)
+  throwHttpError("SERVICE_UNAVAILABLE", "Metadata not synced")
 }
 
 export async function getWorks(env: Env): Promise<Work[]> {
@@ -76,12 +72,4 @@ export async function getWorks(env: Env): Promise<Work[]> {
 export async function getPersons(env: Env): Promise<Person[]> {
   const { persons } = await getMetadata(env)
   return persons
-}
-
-export async function getSyncedAt(env: Env): Promise<string | null> {
-  return env.KV.get("meta:syncedAt")
-}
-
-export async function syncMetadata(env: Env): Promise<void> {
-  await fetchAndSyncMetadata(env)
 }

@@ -4,7 +4,6 @@ import { onErrorHandler } from "./errors"
 import { works } from "./routes/works"
 import { persons } from "./routes/persons"
 import { health } from "./routes/health"
-import { syncMetadata } from "./services/metadata"
 
 const app = new Hono<{ Bindings: Env }>()
 
@@ -16,7 +15,4 @@ app.route("/v1", health)
 
 export default {
   fetch: app.fetch,
-  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(syncMetadata(env))
-  },
 }
