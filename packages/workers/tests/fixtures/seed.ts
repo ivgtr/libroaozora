@@ -137,8 +137,18 @@ export const SEED_WORKS: Work[] = [W1, W2, W3, W4, W5]
 export const SEED_PERSONS: Person[] = [P1, P2, P3]
 export const SEED_SYNCED_AT = "2026-04-01T00:00:00Z"
 
+/** R2 テスト用ダミー zip データ（テストでは decompress/decode がモックされる） */
+export const SEED_CONTENT_ZIP = new Uint8Array([0x50, 0x4b, 0x03, 0x04])
+export const SEED_METADATA_ZIP = new Uint8Array([0x50, 0x4b, 0x03, 0x04])
+export const METADATA_R2_KEY = "metadata/list_person_all_extended_utf8.zip"
+
 export async function seedKV(kv: KVNamespace): Promise<void> {
   await kv.put("meta:works", JSON.stringify(SEED_WORKS))
   await kv.put("meta:persons", JSON.stringify(SEED_PERSONS))
   await kv.put("meta:syncedAt", SEED_SYNCED_AT)
+}
+
+export async function seedR2(r2: R2Bucket): Promise<void> {
+  await r2.put("cards/000001/files/001000_ruby.zip", SEED_CONTENT_ZIP)
+  await r2.put(METADATA_R2_KEY, SEED_METADATA_ZIP)
 }
