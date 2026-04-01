@@ -20,7 +20,7 @@ export async function getContent(
   }
 
   const data = new Uint8Array(await response.arrayBuffer())
-  const decompressed = decompress(data)
+  const decompressed = decompress(data, ".txt")
   const text = decode(decompressed) // Shift-JIS → UTF-8
 
   // Cache permanently (no TTL)
