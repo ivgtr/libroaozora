@@ -40,7 +40,7 @@ pnpm lint         # 型チェック
 ## 実装フェーズ
 
 - Phase 1: core（型定義・CSVパーサー・decompress・decode・formatter）
-- Phase 2: workers（Hono + KV によるエッジAPI）
+- Phase 2: workers（Hono + KV + R2 によるエッジAPI、外部メタデータ同期）
 - TODO: server（Node.js + SQLite + FTS5）
 
 ## 制約
@@ -48,11 +48,3 @@ pnpm lint         # 型チェック
 - `core` は他パッケージに依存しない。ランタイム非依存（Node.js・Workers両対応）
 - 著作権存続作品の本文は提供しない（`copyrightFlag: true` → 403）
 - workers での全文検索は 501 Not Implemented を返す
-
-
-## Active Technologies
-- TypeScript 5.8 (strict mode) + Hono 4.7, fflate 0.8, wrangler 4.10, @cloudflare/vitest-pool-workers 0.14 (006-external-metadata-sync)
-- Cloudflare KV（TTL 3 日）+ R2（永続ストア） (006-external-metadata-sync)
-
-## Recent Changes
-- 006-external-metadata-sync: Added TypeScript 5.8 (strict mode) + Hono 4.7, fflate 0.8, wrangler 4.10, @cloudflare/vitest-pool-workers 0.14
