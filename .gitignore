@@ -1,4 +1,5 @@
-.docs/
+.docs/*/
+!.docs/aozora-requirements.md
 .serena/
 .specify/
 node_modules/
