@@ -7,4 +7,4 @@ crons = ["0 3 * * *"]
 
 [[kv_namespaces]]
 binding = "KV"
-id = "<your-kv-id>"
+id = "00000000000000000000000000000000"
