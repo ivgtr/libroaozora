@@ -17,6 +17,6 @@ app.route("/v1", health)
 export default {
   fetch: app.fetch,
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(syncMetadata(env.KV))
+    ctx.waitUntil(syncMetadata(env))
   },
 }

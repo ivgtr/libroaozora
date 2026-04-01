@@ -6,8 +6,8 @@ const health = new Hono<{ Bindings: Env }>()
 
 health.get("/health", async (c) => {
   const [{ works, persons }, lastSyncedAt] = await Promise.all([
-    getMetadata(c.env.KV),
-    getSyncedAt(c.env.KV),
+    getMetadata(c.env),
+    getSyncedAt(c.env),
   ])
 
   return c.json({
@@ -21,8 +21,8 @@ health.get("/health", async (c) => {
 
 health.get("/stats", async (c) => {
   const [{ works, persons }, lastUpdatedAt] = await Promise.all([
-    getMetadata(c.env.KV),
-    getSyncedAt(c.env.KV),
+    getMetadata(c.env),
+    getSyncedAt(c.env),
   ])
 
   const publicDomainWorks = works.filter((w) => !w.copyrightFlag).length

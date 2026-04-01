@@ -3,7 +3,10 @@ import { env, exports } from "cloudflare:workers"
 import type { SearchResult, Work, Person, ErrorResponse } from "@libroaozora/core"
 import { seedKV } from "../fixtures/seed"
 
-vi.mock("../../src/lib/csv-fetcher", () => ({ fetchAndParseCSV: vi.fn() }))
+vi.mock("../../src/lib/csv-fetcher", () => ({
+  fetchCSVZip: vi.fn(),
+  parseCSVZip: vi.fn(),
+}))
 
 beforeAll(async () => {
   await seedKV(env.KV)

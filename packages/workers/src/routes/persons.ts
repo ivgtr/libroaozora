@@ -11,7 +11,7 @@ const persons = new Hono<{ Bindings: Env }>()
 persons.get("/persons", async (c) => {
   const { page, perPage } = parsePagination(c)
 
-  const allPersons = await getPersons(c.env.KV)
+  const allPersons = await getPersons(c.env)
   const result = paginate(allPersons, page, perPage)
 
   return c.json(result)
@@ -20,7 +20,7 @@ persons.get("/persons", async (c) => {
 // T015: GET /persons/:id — person detail
 persons.get("/persons/:id", async (c) => {
   const id = c.req.param("id")
-  const allPersons = await getPersons(c.env.KV)
+  const allPersons = await getPersons(c.env)
   const person = allPersons.find((p) => p.id === id)
 
   if (!person) {
@@ -33,7 +33,7 @@ persons.get("/persons/:id", async (c) => {
 // T016: GET /persons/:id/works — works by person
 persons.get("/persons/:id/works", async (c) => {
   const id = c.req.param("id")
-  const { works: allWorks, persons: allPersons } = await getMetadata(c.env.KV)
+  const { works: allWorks, persons: allPersons } = await getMetadata(c.env)
   const person = allPersons.find((p) => p.id === id)
 
   if (!person) {
