@@ -1,8 +1,10 @@
 .docs/
+.serena/
 node_modules/
 dist/
 *.tsbuildinfo
 .wrangler/
+wrangler.toml
 .env
 .env.*
 !.env.example
