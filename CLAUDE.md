@@ -47,3 +47,10 @@ pnpm lint         # 型チェック
 - `core` は他パッケージに依存しない。ランタイム非依存（Node.js・Workers両対応）
 - 著作権存続作品の本文は提供しない（`copyrightFlag: true` → 403）
 - workers での全文検索は 501 Not Implemented を返す
+
+## Active Technologies
+- TypeScript 5.8 (strict mode) + Hono v4.7.5, @libroaozora/core (workspace), fflate, d3-dsv (003-workers-edge-api)
+- Cloudflare Workers KV（メタデータ 3-5MB + 本文テキスト） (003-workers-edge-api)
+
+## Recent Changes
+- 003-workers-edge-api: Added TypeScript 5.8 (strict mode) + Hono v4.7.5, @libroaozora/core (workspace), fflate, d3-dsv
