@@ -1,4 +1,4 @@
-import { csvParse } from "d3-dsv"
+import { csvParse } from "./lib/csv-parse.js"
 import type {
   ParseResult,
   Work,

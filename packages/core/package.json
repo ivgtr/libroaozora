@@ -22,10 +22,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "d3-dsv": "^3.0.1",
     "fflate": "^0.8.2"
-  },
-  "devDependencies": {
-    "@types/d3-dsv": "^3.0.7"
   }
 }
