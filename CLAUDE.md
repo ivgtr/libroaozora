@@ -51,6 +51,8 @@ pnpm lint         # 型チェック
 ## Active Technologies
 - TypeScript 5.8 (strict mode) + Hono v4.7.5, @libroaozora/core (workspace), fflate, d3-dsv (003-workers-edge-api)
 - Cloudflare Workers KV（メタデータ 3-5MB + 本文テキスト） (003-workers-edge-api)
+- TypeScript 5.8 (strict mode) + Hono v4.7.5, @libroaozora/core (workspace), @cloudflare/vitest-pool-workers ^0.14.0 (004-workers-test-setup)
+- Cloudflare Workers KV（テスト時はインメモリ） (004-workers-test-setup)
 
 ## Recent Changes
 - 003-workers-edge-api: Added TypeScript 5.8 (strict mode) + Hono v4.7.5, @libroaozora/core (workspace), fflate, d3-dsv
