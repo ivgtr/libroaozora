@@ -23,8 +23,8 @@ Base: `/v1`
 | GET | `/persons` | 人物一覧 |
 | GET | `/persons/:id` | 人物詳細 |
 | GET | `/persons/:id/works` | 人物の関連作品 |
-| GET | `/health` | ヘルスチェック |
-| GET | `/stats` | 統計情報 |
+| GET | `/health` | ヘルスチェック（常に 200、未同期時は `status: "degraded"`） |
+| GET | `/stats` | 統計情報（未同期時は 503） |
 
 ## 技術スタック
 
@@ -41,11 +41,10 @@ Base: `/v1`
 
 | ストレージ | 役割 | 内容 |
 |---|---|---|
-| KV | ホットキャッシュ | メタデータ・本文テキストを TTL 付きで保持 |
-| R2 | 原本ストア | GitHub から取得したデータの永続コピー |
-| GitHub | オリジン | 青空文庫の CSV・本文 zip の取得元 |
+| KV | ホットキャッシュ（TTL 3 日） | メタデータ JSON・本文テキスト |
+| R2 | 永続ストア | メタデータ JSON（`metadata/all.json`）・本文 zip |
 
-リクエスト時は KV → R2 → GitHub の順にフォールバックし、取得したデータを上位層に書き戻します。
+メタデータの書き込みは外部同期スクリプトが担います。Workers はリクエスト時に KV → R2 の順にフォールバックし、R2 から取得したデータを KV に書き戻します。本文取得は KV → R2 → GitHub の 3 層フォールバックです。
 
 ## セットアップ
 
@@ -87,10 +86,18 @@ pnpm lint
 ## デプロイ
 
 ```bash
-pnpm --filter @libroaozora/workers deploy
+pnpm --filter @libroaozora/workers run deploy
 ```
 
-デプロイ完了時に `https://libroaozora.<your-subdomain>.workers.dev` が表示されます。初回デプロイ後、Cloudflare ダッシュボードの Workers > Triggers から Cron を手動実行してメタデータを同期してください。以降は毎週月曜 UTC 03:00 に自動同期されます。
+## メタデータ同期
+
+デプロイ後、メタデータの同期を実行する必要があります。同期を行うまで `/v1/works`・`/v1/persons`・`/v1/stats` は 503 を返し、`/v1/health` は `status: "degraded"` を返します。
+
+```bash
+KV_NAMESPACE_ID=<your-kv-namespace-id> pnpm --filter @libroaozora/workers run sync
+```
+
+同期スクリプトは青空文庫の CSV をダウンロード・パースし、R2 と KV にメタデータを書き込みます。GitHub Actions の手動トリガー（`workflow_dispatch`）でも実行できます。
 
 ## ライセンス
 
