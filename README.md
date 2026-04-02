@@ -64,15 +64,15 @@ pnpm build
 cp packages/web/.env.local.example packages/web/.env.local
 ```
 
-`API_BASE_URL` にデプロイ済みの Workers URL を設定してください。
+`API_BASE_URL` に Workers の URL を設定してください。ローカル開発時は `http://localhost:8787`、本番環境ではデプロイ済みの URL を指定します。
 
 ## 開発
 
 ```bash
-# Workers ローカル開発サーバー
+# Workers ローカル開発サーバー (localhost:8787)
 pnpm --filter @libroaozora/workers dev
 
-# Web UI ローカル開発サーバー
+# Web UI ローカル開発サーバー (localhost:3000)
 pnpm --filter @libroaozora/web dev
 
 # テスト
