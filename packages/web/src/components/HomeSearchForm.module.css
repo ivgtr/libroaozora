@@ -14,7 +14,7 @@
   font-size: 1rem;
   background: transparent;
   transition: border-color 0.2s ease-out;
-  text-align: center;
+  text-align: left;
 }
 
 .input:focus {
