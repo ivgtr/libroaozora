@@ -18,12 +18,12 @@ Base: `/v1`
 
 | メソッド | パス | 説明 |
 |---|---|---|
-| GET | `/works` | 作品一覧（フィルタ・ソート・ページネーション） |
+| GET | `/works` | 作品一覧（`title`, `author`, `ndc`, `copyright` 等でフィルタ。`sort`, `page`, `per_page` 対応） |
 | GET | `/works/:id` | 作品詳細 |
-| GET | `/works/:id/content` | 作品本文（著作権存続作品は 403） |
-| GET | `/persons` | 人物一覧（フィルタ・ソート・ページネーション） |
+| GET | `/works/:id/content` | 作品本文（`format`: `plain`（デフォルト）/ `raw`。著作権存続作品は 403） |
+| GET | `/persons` | 人物一覧（`name` でフィルタ。`sort`, `page`, `per_page` 対応） |
 | GET | `/persons/:id` | 人物詳細 |
-| GET | `/persons/:id/works` | 人物の関連作品 |
+| GET | `/persons/:id/works` | 人物の関連作品（`page`, `per_page` 対応） |
 | GET | `/health` | ヘルスチェック（常に 200、未同期時は `status: "degraded"`） |
 | GET | `/stats` | 統計情報（未同期時は 503） |
 
@@ -31,7 +31,7 @@ Base: `/v1`
 
 | ストレージ | 役割 | 内容 |
 |---|---|---|
-| KV | ホットキャッシュ（TTL 3 日） | メタデータ JSON・本文テキスト |
+| KV | ホットキャッシュ（TTL 30 日） | メタデータ JSON・本文テキスト |
 | R2 | 永続ストア | メタデータ JSON・本文 zip |
 
 ## セットアップ
