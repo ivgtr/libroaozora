@@ -1,4 +1,4 @@
-import type { Work, SearchResult } from "@libroaozora/core"
+import type { Work, Person, SearchResult } from "@libroaozora/core"
 
 export type FilterParams = {
   title?: string
@@ -68,6 +68,49 @@ export function sortWorks(
   return [...works].sort((a, b) => {
     if (a[sortField] < b[sortField]) return -1 * direction
     if (a[sortField] > b[sortField]) return 1 * direction
+    return 0
+  })
+}
+
+export type PersonFilterParams = {
+  name?: string
+}
+
+export function filterPersons(
+  persons: Person[],
+  params: PersonFilterParams,
+): Person[] {
+  return persons.filter((person) => {
+    if (params.name) {
+      const query = params.name
+      const match =
+        person.lastName.includes(query) ||
+        person.firstName.includes(query) ||
+        person.lastNameReading.includes(query) ||
+        person.firstNameReading.includes(query) ||
+        (person.lastName + person.firstName).includes(query) ||
+        (person.lastNameReading + person.firstNameReading).includes(query)
+      if (!match) return false
+    }
+
+    return true
+  })
+}
+
+export function sortPersons(
+  persons: Person[],
+  sort?: string,
+  order?: string,
+): Person[] {
+  if (!sort) return [...persons]
+
+  const direction = order === "desc" ? -1 : 1
+
+  return [...persons].sort((a, b) => {
+    const nameA = a.lastNameReading + a.firstNameReading
+    const nameB = b.lastNameReading + b.firstNameReading
+    if (nameA < nameB) return -1 * direction
+    if (nameA > nameB) return 1 * direction
     return 0
   })
 }

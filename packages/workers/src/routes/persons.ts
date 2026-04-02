@@ -3,16 +3,39 @@ import type { Env } from "../env"
 import { throwHttpError } from "../errors"
 import { parsePagination } from "../lib/pagination"
 import { getMetadata, getPersons } from "../services/metadata"
-import { paginate } from "../services/filter"
+import {
+  filterPersons,
+  sortPersons,
+  paginate,
+} from "../services/filter"
+import type { PersonFilterParams } from "../services/filter"
 
 const persons = new Hono<{ Bindings: Env }>()
 
-// T014: GET /persons — persons list with pagination
+// GET /persons — persons list with filtering, sorting, pagination
 persons.get("/persons", async (c) => {
   const { page, perPage } = parsePagination(c)
+  const sort = c.req.query("sort")
+  const order = c.req.query("order")
+
+  if (sort && sort !== "name") {
+    throwHttpError(
+      "BAD_REQUEST",
+      `Sort by ${sort} is not supported. Use "name"`,
+    )
+  }
+  if (order && order !== "asc" && order !== "desc") {
+    throwHttpError("BAD_REQUEST", `Invalid order: ${order}. Use "asc" or "desc"`)
+  }
+
+  const params: PersonFilterParams = {}
+  const name = c.req.query("name")
+  if (name) params.name = name
 
   const allPersons = await getPersons(c.env)
-  const result = paginate(allPersons, page, perPage)
+  const filtered = filterPersons(allPersons, params)
+  const sorted = sortPersons(filtered, sort, order)
+  const result = paginate(sorted, page, perPage)
 
   return c.json(result)
 })
@@ -33,6 +56,7 @@ persons.get("/persons/:id", async (c) => {
 // T016: GET /persons/:id/works — works by person
 persons.get("/persons/:id/works", async (c) => {
   const id = c.req.param("id")
+  const { page, perPage } = parsePagination(c)
   const { works: allWorks, persons: allPersons } = await getMetadata(c.env)
   const person = allPersons.find((p) => p.id === id)
 
@@ -44,12 +68,7 @@ persons.get("/persons/:id/works", async (c) => {
     w.authors.some((a) => a.id === id),
   )
 
-  return c.json({
-    total: personWorks.length,
-    page: 1,
-    perPage: personWorks.length,
-    items: personWorks,
-  })
+  return c.json(paginate(personWorks, page, perPage))
 })
 
 export { persons }
