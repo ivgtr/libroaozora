@@ -1,6 +1,6 @@
 # libroaozora
 
-青空文庫のメタデータ検索・本文取得を提供する REST API。
+青空文庫のメタデータ検索・本文取得を提供する REST API とデモ Web UI。
 
 ## 構成
 
@@ -10,6 +10,7 @@ pnpm workspace によるモノレポ。
 |---|---|
 | `@libroaozora/core` | 共通基盤（型定義・CSV パーサー・zip 展開・Shift-JIS 変換・フォーマッター） |
 | `@libroaozora/workers` | Cloudflare Workers エッジ API（Hono + KV + R2） |
+| `@libroaozora/web` | デモ Web UI（Next.js） |
 
 ## API エンドポイント
 
@@ -20,31 +21,18 @@ Base: `/v1`
 | GET | `/works` | 作品一覧（フィルタ・ソート・ページネーション） |
 | GET | `/works/:id` | 作品詳細 |
 | GET | `/works/:id/content` | 作品本文（著作権存続作品は 403） |
-| GET | `/persons` | 人物一覧 |
+| GET | `/persons` | 人物一覧（フィルタ・ソート・ページネーション） |
 | GET | `/persons/:id` | 人物詳細 |
 | GET | `/persons/:id/works` | 人物の関連作品 |
 | GET | `/health` | ヘルスチェック（常に 200、未同期時は `status: "degraded"`） |
 | GET | `/stats` | 統計情報（未同期時は 503） |
-
-## 技術スタック
-
-- **言語**: TypeScript 5.8（strict mode）
-- **パッケージ管理**: pnpm workspace
-- **ビルド**: tsup（ESM + CJS）
-- **テスト**: Vitest + @cloudflare/vitest-pool-workers
-- **HTTP**: Hono v4
-- **ランタイム**: Cloudflare Workers
-- **ストレージ**: Cloudflare KV + R2
-- **zip 展開**: fflate
 
 ## ストレージ構成
 
 | ストレージ | 役割 | 内容 |
 |---|---|---|
 | KV | ホットキャッシュ（TTL 3 日） | メタデータ JSON・本文テキスト |
-| R2 | 永続ストア | メタデータ JSON（`metadata/all.json`）・本文 zip |
-
-メタデータの書き込みは外部同期スクリプトが担います。Workers はリクエスト時に KV → R2 の順にフォールバックし、R2 から取得したデータを KV に書き戻します。本文取得は KV → R2 → GitHub の 3 層フォールバックです。
+| R2 | 永続ストア | メタデータ JSON・本文 zip |
 
 ## セットアップ
 
@@ -70,11 +58,22 @@ pnpm build
 
 3. KV 作成時に表示される namespace ID を `wrangler.toml` の `kv_namespaces.id` に記入（R2 の bucket 名は example の既定値と一致するためそのまま使用）
 
+### Web UI の設定
+
+```bash
+cp packages/web/.env.local.example packages/web/.env.local
+```
+
+`API_BASE_URL` にデプロイ済みの Workers URL を設定してください。
+
 ## 開発
 
 ```bash
 # Workers ローカル開発サーバー
 pnpm --filter @libroaozora/workers dev
+
+# Web UI ローカル開発サーバー
+pnpm --filter @libroaozora/web dev
 
 # テスト
 pnpm test
