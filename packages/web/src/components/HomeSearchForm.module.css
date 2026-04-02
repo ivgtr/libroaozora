@@ -1,0 +1,43 @@
+.form {
+  display: flex;
+  gap: 12px;
+  max-width: 480px;
+  margin: 0 auto;
+  align-items: flex-end;
+}
+
+.input {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  font-size: 1rem;
+  background: transparent;
+  transition: border-color 0.2s ease-out;
+  text-align: center;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--text);
+}
+
+.input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.button {
+  padding: 6px 16px;
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: opacity 0.2s ease-out;
+  white-space: nowrap;
+}
+
+.button:hover {
+  opacity: 0.6;
+}

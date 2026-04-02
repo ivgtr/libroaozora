@@ -1,0 +1,42 @@
+.nav {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 16px;
+  margin-top: 40px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.link,
+.current {
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.link {
+  color: var(--text-secondary);
+  transition: color 0.2s ease-out;
+}
+
+.link:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.current {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.ellipsis {
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+}
+
+.info {
+  text-align: center;
+  margin-top: 12px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--text-tertiary);
+}

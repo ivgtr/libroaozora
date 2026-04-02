@@ -1,0 +1,53 @@
+.reader {
+  font-family: "Hiragino Mincho ProN", "Noto Serif JP", "Yu Mincho",
+    "MS Mincho", serif;
+  font-size: 1.0625rem;
+  line-height: 2;
+  letter-spacing: 0.04em;
+  max-width: 42em;
+  margin: 0 auto;
+  padding: 40px 0;
+  color: var(--text);
+  word-break: break-all;
+  overflow-wrap: break-word;
+}
+
+.reader p {
+  margin-bottom: 1em;
+  text-indent: 1em;
+}
+
+.reader h2,
+.reader h3 {
+  font-size: 1.25rem;
+  margin: 2em 0 1em;
+  text-indent: 0;
+}
+
+.reader hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2em 0;
+}
+
+.unavailable {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--text-tertiary);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  margin-top: 24px;
+  font-size: 0.875rem;
+}
+
+.unavailable p {
+  margin-bottom: 8px;
+}
+
+@media (max-width: 640px) {
+  .reader {
+    font-size: 1rem;
+    line-height: 1.9;
+    padding: 32px 0;
+  }
+}

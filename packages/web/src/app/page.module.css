@@ -1,0 +1,31 @@
+.hero {
+  text-align: center;
+  padding: 72px 0 64px;
+}
+
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.subtitle {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 48px;
+}
+
+.searchSection {
+  max-width: 100%;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 48px 0 40px;
+  }
+}

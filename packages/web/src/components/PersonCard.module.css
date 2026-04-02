@@ -1,0 +1,34 @@
+.card {
+  display: block;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: inherit;
+  transition: opacity 0.2s ease-out;
+}
+
+.card:hover {
+  opacity: 0.6;
+  text-decoration: none;
+}
+
+.name {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 2px;
+}
+
+.reading {
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  margin-bottom: 6px;
+}
+
+.meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--text-tertiary);
+}

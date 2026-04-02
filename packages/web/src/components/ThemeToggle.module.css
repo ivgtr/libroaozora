@@ -1,0 +1,14 @@
+.toggle {
+  display: flex;
+  align-items: center;
+  color: var(--text-tertiary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s ease-out;
+  padding: 0;
+}
+
+.toggle:hover {
+  color: var(--text-secondary);
+}

@@ -1,0 +1,23 @@
+.heading {
+  font-size: 1.25rem;
+  margin-bottom: 32px;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+}
+
+.summary {
+  font-size: 0.8125rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.empty {
+  text-align: center;
+  padding: 48px 0;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
+}
