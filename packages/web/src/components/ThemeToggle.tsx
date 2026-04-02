@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   THEME_ATTRIBUTE,
   THEME_COOKIE_NAME,
@@ -45,12 +45,11 @@ function MoonIcon() {
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<Theme>("light");
-
-  useEffect(() => {
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "light";
     const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-    setTheme(stored === "dark" ? "dark" : "light");
-  }, []);
+    return stored === "dark" ? "dark" : "light";
+  });
 
   const toggle = useCallback(() => {
     setTheme((prev) => {
