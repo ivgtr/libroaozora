@@ -106,7 +106,7 @@ works.get("/works/:id/content", async (c) => {
       "Structured format is not available in workers mode",
     )
   }
-  if (format !== "plain" && format !== "raw" && format !== "html") {
+  if (format !== "plain" && format !== "raw") {
     throwHttpError("BAD_REQUEST", `Invalid format: ${format}`)
   }
 
