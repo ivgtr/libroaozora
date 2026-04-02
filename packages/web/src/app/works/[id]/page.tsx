@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { WorkContent } from "@libroaozora/core";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getWork, getWorkContent, ApiError } from "@/lib/api-client";
+import { getWork, getStructuredContent, ApiError } from "@/lib/api-client";
 import { formatFullName, formatDate, translateRole } from "@/lib/format";
 import { ContentReader, ContentUnavailable } from "@/components/ContentReader";
 import styles from "./page.module.css";
@@ -60,7 +60,7 @@ export default async function WorkDetailPage({ params }: Props) {
     contentState = { kind: "unavailable", reason: "no-text" };
   } else {
     try {
-      const data = await getWorkContent(id);
+      const data = await getStructuredContent(id);
       contentState = { kind: "content", data };
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) {

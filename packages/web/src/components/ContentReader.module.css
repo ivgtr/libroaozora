@@ -30,6 +30,20 @@
   margin: 2em 0;
 }
 
+.reader ruby rt {
+  font-size: 0.5em;
+}
+
+.emphasis {
+  font-style: normal;
+  text-emphasis-style: sesame;
+  -webkit-text-emphasis-style: sesame;
+}
+
+.bold {
+  font-weight: 700;
+}
+
 .unavailable {
   text-align: center;
   padding: 48px 0;

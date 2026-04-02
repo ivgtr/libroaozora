@@ -1,4 +1,4 @@
-import type { WorkContent } from "@libroaozora/core";
+import type { WorkContent, InlineNode } from "@libroaozora/core";
 import styles from "./ContentReader.module.css";
 
 type Props = {
@@ -37,28 +37,40 @@ export function ContentReader({ content }: Props) {
   return null;
 }
 
-function renderNodes(
-  nodes: { type: string; text?: string; base?: string; reading?: string; note?: string }[],
-) {
+function renderNodes(nodes: InlineNode[]) {
   return nodes.map((node, i) => {
-    if (node.type === "ruby" && node.base && node.reading) {
-      return (
-        <ruby key={i}>
-          {node.base}
-          <rp>(</rp>
-          <rt>{node.reading}</rt>
-          <rp>)</rp>
-        </ruby>
-      );
+    switch (node.type) {
+      case "ruby":
+        return (
+          <ruby key={i}>
+            {node.base}
+            <rp>(</rp>
+            <rt>{node.reading}</rt>
+            <rp>)</rp>
+          </ruby>
+        );
+      case "emphasis":
+        return (
+          <em key={i} className={styles.emphasis}>
+            {node.text}
+          </em>
+        );
+      case "bold":
+        return (
+          <strong key={i} className={styles.bold}>
+            {node.text}
+          </strong>
+        );
+      case "annotation":
+        return (
+          <span key={i} title={node.note}>
+            {node.text}
+          </span>
+        );
+      case "text":
+      default:
+        return <span key={i}>{node.text}</span>;
     }
-    if (node.type === "annotation" && node.text) {
-      return (
-        <span key={i} title={node.note}>
-          {node.text}
-        </span>
-      );
-    }
-    return <span key={i}>{node.text}</span>;
   });
 }
 

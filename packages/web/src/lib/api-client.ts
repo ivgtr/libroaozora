@@ -1,4 +1,5 @@
 import { unstable_cache } from "next/cache";
+import { parseStructured } from "@libroaozora/core";
 import type {
   Work,
   Person,
@@ -71,13 +72,27 @@ export async function getWork(id: string): Promise<Work> {
   return apiFetch<Work>(`/v1/works/${encodeURIComponent(id)}`);
 }
 
-export async function getWorkContent(id: string): Promise<WorkContent> {
-  const params = new URLSearchParams({ format: "plain" });
+async function fetchRawContent(id: string): Promise<WorkContent> {
+  const params = new URLSearchParams({ format: "raw" });
   return apiFetch<WorkContent>(
     `/v1/works/${encodeURIComponent(id)}/content`,
     params,
   );
 }
+
+export const getStructuredContent = unstable_cache(
+  async (id: string): Promise<WorkContent> => {
+    const raw = await fetchRawContent(id);
+    const structured = parseStructured(raw.content as string);
+    return {
+      workId: raw.workId,
+      format: "structured" as WorkContent["format"],
+      content: structured,
+    };
+  },
+  ["structured-content"],
+  { revalidate: 86400 },
+);
 
 export async function searchPersons(
   params: URLSearchParams,
