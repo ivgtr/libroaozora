@@ -15,7 +15,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   try {
     const person = await getPerson(id);
-    return { title: formatFullName(person) };
+    const name = formatFullName(person);
+    return {
+      title: name,
+      description: `${name}の著者情報と著作一覧（${person.worksCount}作品）`,
+    };
   } catch {
     return { title: "人物詳細" };
   }

@@ -19,7 +19,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   try {
     const work = await getWork(id);
-    return { title: work.title };
+    const authors = work.authors.map((a) => formatFullName(a)).join("、");
+    const description = authors
+      ? `${authors}による「${work.title}」の作品情報と本文`
+      : `「${work.title}」の作品情報と本文`;
+    return {
+      title: work.title,
+      description,
+      openGraph: { type: "article" },
+    };
   } catch {
     return { title: "作品詳細" };
   }

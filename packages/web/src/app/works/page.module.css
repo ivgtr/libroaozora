@@ -1,24 +1,23 @@
 .heading {
-  font-size: 1.5rem;
-  margin-bottom: 24px;
+  font-size: 1.25rem;
+  margin-bottom: 32px;
 }
 
 .results {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  margin-top: 24px;
 }
 
 .summary {
-  font-size: 0.875rem;
-  color: #666;
-  margin-top: 16px;
+  font-size: 0.8125rem;
+  font-family: var(--font-mono, ui-monospace, monospace);
+  color: var(--text-secondary);
+  margin-bottom: 16px;
 }
 
 .empty {
   text-align: center;
-  padding: 48px 20px;
-  color: #888;
-  font-size: 1rem;
+  padding: 48px 0;
+  color: var(--text-tertiary);
+  font-size: 0.875rem;
 }

@@ -8,6 +8,7 @@ import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "作品検索",
+  description: "青空文庫の作品をタイトルや著者名で検索できます",
 };
 
 type Props = {

@@ -7,6 +7,7 @@ import styles from "./page.module.css";
 
 export const metadata: Metadata = {
   title: "人物一覧",
+  description: "青空文庫に収録されている著者・翻訳者の一覧を検索できます",
 };
 
 type Props = {

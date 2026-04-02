@@ -32,51 +32,37 @@ export function SearchForm() {
 
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
-      <div className={styles.fields}>
-        <div className={styles.field}>
-          <label htmlFor="title" className={styles.label}>
-            タイトル
-          </label>
-          <input
-            id="title"
-            name="title"
-            type="text"
-            className={styles.input}
-            defaultValue={title}
-            placeholder="作品名を入力"
-          />
-        </div>
-        <div className={styles.field}>
-          <label htmlFor="author" className={styles.label}>
-            著者名
-          </label>
-          <input
-            id="author"
-            name="author"
-            type="text"
-            className={styles.input}
-            defaultValue={author}
-            placeholder="著者名を入力"
-          />
-        </div>
-      </div>
-      <div className={styles.controls}>
-        <div className={styles.sortGroup}>
-          <span className={styles.sortLabel}>並び替え</span>
-          <select name="sort" className={styles.select} defaultValue={sort}>
-            <option value="">指定なし</option>
-            <option value="published_at">公開日</option>
-            <option value="updated_at">更新日</option>
-          </select>
-          <select name="order" className={styles.select} defaultValue={order}>
-            <option value="">指定なし</option>
-            <option value="asc">昇順</option>
-            <option value="desc">降順</option>
-          </select>
-        </div>
+      <div className={styles.inputRow}>
+        <input
+          name="title"
+          type="text"
+          className={styles.input}
+          defaultValue={title}
+          placeholder="作品名"
+        />
+        <input
+          name="author"
+          type="text"
+          className={styles.input}
+          defaultValue={author}
+          placeholder="著者名"
+        />
         <button type="submit" className={styles.button}>
           検索
         </button>
+      </div>
+      <div className={styles.sortRow}>
+        <span className={styles.sortLabel}>並び替え</span>
+        <select name="sort" className={styles.select} defaultValue={sort}>
+          <option value="">指定なし</option>
+          <option value="published_at">公開日</option>
+          <option value="updated_at">更新日</option>
+        </select>
+        <select name="order" className={styles.select} defaultValue={order}>
+          <option value="">指定なし</option>
+          <option value="asc">昇順</option>
+          <option value="desc">降順</option>
+        </select>
       </div>
     </form>
   );

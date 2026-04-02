@@ -1,31 +1,31 @@
 .hero {
   text-align: center;
-  padding: 48px 0 40px;
+  padding: 72px 0 64px;
 }
 
 .title {
-  font-size: 2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.25rem;
   font-weight: 700;
   margin-bottom: 8px;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono, ui-monospace, monospace);
 }
 
 .subtitle {
-  font-size: 1rem;
-  color: #666;
-  margin-bottom: 40px;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin-bottom: 48px;
 }
 
 .searchSection {
-  max-width: 640px;
-  margin: 0 auto;
+  max-width: 100%;
 }
 
 @media (max-width: 640px) {
   .hero {
-    padding: 32px 0 24px;
-  }
-
-  .title {
-    font-size: 1.5rem;
+    padding: 48px 0 40px;
   }
 }
