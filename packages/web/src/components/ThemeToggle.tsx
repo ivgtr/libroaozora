@@ -44,11 +44,14 @@ function MoonIcon() {
   );
 }
 
-export function ThemeToggle() {
+export function ThemeToggle({ initialTheme }: { initialTheme?: Theme }) {
   const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
-    return stored === "dark" ? "dark" : "light";
+    if (typeof window === "undefined") return initialTheme ?? "light";
+    return (
+      (document.documentElement.getAttribute(THEME_ATTRIBUTE) as Theme) ??
+      initialTheme ??
+      "light"
+    );
   });
 
   const toggle = useCallback(() => {
