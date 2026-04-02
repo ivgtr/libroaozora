@@ -1,0 +1,6 @@
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+.env.local
+.env.local.example

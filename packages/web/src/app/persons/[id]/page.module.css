@@ -1,0 +1,61 @@
+.backLink {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #2563a8;
+  margin-bottom: 20px;
+}
+
+.header {
+  margin-bottom: 32px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e5e2dc;
+}
+
+.name {
+  font-size: 1.75rem;
+  margin-bottom: 4px;
+}
+
+.reading {
+  font-size: 1rem;
+  color: #888;
+  margin-bottom: 16px;
+}
+
+.metaTable {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 16px;
+  font-size: 0.875rem;
+}
+
+.metaLabel {
+  color: #888;
+}
+
+.metaValue {
+  color: #333;
+}
+
+.section {
+  margin-top: 24px;
+}
+
+.sectionTitle {
+  font-size: 1.125rem;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e2dc;
+}
+
+.works {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.emptyWorks {
+  text-align: center;
+  padding: 32px 20px;
+  color: #888;
+}

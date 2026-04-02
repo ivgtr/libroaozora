@@ -1,0 +1,38 @@
+.card {
+  display: block;
+  padding: 16px 20px;
+  border: 1px solid #e5e2dc;
+  border-radius: 8px;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.card:hover {
+  border-color: #c5c0b8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+}
+
+.name {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 2px;
+}
+
+.reading {
+  font-size: 0.8125rem;
+  color: #888;
+  margin-bottom: 8px;
+}
+
+.meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: #888;
+}

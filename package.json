@@ -4,6 +4,9 @@
   "private": true,
   "description": "青空文庫メタデータ検索・本文取得 REST API",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ivgtr/libroaozora.git"

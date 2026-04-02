@@ -1,0 +1,49 @@
+.card {
+  display: block;
+  padding: 16px 20px;
+  border: 1px solid #e5e2dc;
+  border-radius: 8px;
+  background: #fff;
+  text-decoration: none;
+  color: inherit;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+.card:hover {
+  border-color: #c5c0b8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  text-decoration: none;
+}
+
+.title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.5;
+  margin-bottom: 4px;
+}
+
+.authors {
+  font-size: 0.875rem;
+  color: #555;
+  margin-bottom: 8px;
+}
+
+.meta {
+  display: flex;
+  gap: 16px;
+  font-size: 0.75rem;
+  color: #888;
+}
+
+.copyrightBadge {
+  display: inline-block;
+  font-size: 0.6875rem;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #f0e6d3;
+  color: #8b6914;
+  margin-left: 8px;
+  vertical-align: middle;
+}
