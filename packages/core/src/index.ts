@@ -25,5 +25,8 @@ export { decode } from "./decode.js"
 // Formatter
 export { formatContent } from "./formatter.js"
 
+// Parser
+export { parseStructured } from "./parser.js"
+
 // CSV Parser
 export { parseCSV } from "./csv-parser.js"

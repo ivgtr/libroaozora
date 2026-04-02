@@ -2,7 +2,7 @@
 
 export type Role = "author" | "translator" | "editor" | "reviser"
 
-export type ContentFormat = "plain" | "html" | "raw" | "structured"
+export type ContentFormat = "plain" | "raw" | "structured"
 
 export type ErrorCode =
   | "NOT_FOUND"
@@ -68,6 +68,8 @@ export type Person = {
 export type InlineNode =
   | { type: "text"; text: string }
   | { type: "ruby"; base: string; reading: string }
+  | { type: "emphasis"; text: string }
+  | { type: "bold"; text: string }
   | { type: "annotation"; text: string; note: string }
 
 export type ContentBlock =
