@@ -17,6 +17,7 @@ const csp = [
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  transpilePackages: ["@libroaozora/core"],
   experimental: {
     globalNotFound: true,
   },
