@@ -1,3 +1,4 @@
+import { createExecutionContext } from "cloudflare:test"
 import { sourceRevision } from "@libroaozora/core"
 import type { Work } from "@libroaozora/core"
 import { contentKVKey, contentR2Key } from "../../src/services/content-v2"
@@ -35,7 +36,7 @@ describe("047927 official origin with real ZIP decoding", () => {
     await env.KV.put(META_PERSONS_KEY, "[]")
     await env.R2.put(METADATA_R2_KEY, JSON.stringify({ works: [fixture.metadata], persons: [], syncedAt: "2026-09-06T00:00:00Z" }))
 
-    const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
+    const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env, createExecutionContext())
     expect(res.status).toBe(200)
     expect(res.headers.get("X-Cache-Status")).toBe("MISS")
     expect(await res.json()).toMatchObject({ workId: "047927", format: "raw", content: fixture.text })
@@ -43,7 +44,7 @@ describe("047927 official origin with real ZIP decoding", () => {
     const revision = await sourceRevision(fixture.metadata as Work)
     expect(await env.KV.get(contentKVKey("047927", revision), "json")).toHaveProperty("text", fixture.text)
     expect(new Uint8Array(await (await env.R2.get(contentR2Key("047927", revision)))!.arrayBuffer())).toEqual(zip())
-    const request = () => app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
+    const request = () => app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env, createExecutionContext())
     expect((await request()).headers.get("X-Cache-Status")).toBe("HIT")
     await env.KV.delete(contentKVKey("047927", revision))
     expect((await request()).headers.get("X-Cache-Status")).toBe("HIT")
@@ -64,7 +65,7 @@ describe("047927 official origin with real ZIP decoding", () => {
     await env.KV.put(META_WORKS_KEY, JSON.stringify([fixture.metadata]))
     await env.KV.put(META_PERSONS_KEY, "[]")
     await env.R2.put(METADATA_R2_KEY, JSON.stringify({ works: [fixture.metadata], persons: [], syncedAt: "2026-09-06T00:00:00Z" }))
-    const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
+    const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env, createExecutionContext())
     expect(res.status).toBe(503)
     expect(await res.json()).toEqual({ error: { code: "SOURCE_TEMPORARY_ERROR", message: "Content source unavailable" } })
     expect(error).toHaveBeenCalledWith("Content operation failed", {
@@ -121,12 +122,12 @@ it("decodes the real 789 official ZIP through raw/plain routes", async () => {
     await env.R2.put(METADATA_R2_KEY, JSON.stringify({ works: [control.metadata], persons: [], syncedAt: "2026-09-06T00:00:00Z" }))
   const bytes = Uint8Array.from(atob(control.zipBase64), c => c.charCodeAt(0))
   const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(bytes))
-  const raw = await app.fetch(new Request("https://test/v1/works/000789/content?format=raw"), env)
+  const raw = await app.fetch(new Request("https://test/v1/works/000789/content?format=raw"), env, createExecutionContext())
   expect(raw.status).toBe(200)
   const body = await raw.json() as { content: string }
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body.content))
   expect(Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("")).toBe(control.textSha256)
-  const plain = await app.fetch(new Request("https://test/v1/works/000789/content?format=plain"), env)
+  const plain = await app.fetch(new Request("https://test/v1/works/000789/content?format=plain"), env, createExecutionContext())
   expect(plain.status).toBe(200)
   expect(plain.headers.get("X-Cache-Status")).toBe("HIT")
   expect(fetchMock).toHaveBeenCalledOnce()

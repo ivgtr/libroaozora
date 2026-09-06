@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { env } from "cloudflare:workers"
 import { sha256 } from "@libroaozora/core"
-import { getMetadata, getWorks, getPersons, resetMetadataForTesting } from "../../src/services/metadata"
+import { getMetadata, getPreviousWork, getWorks, getPersons, resetMetadataForTesting } from "../../src/services/metadata"
 import { CURRENT_KEY, MIGRATED_KEY, MIGRATED_VALUE, snapshotKey, metadataKey } from "../../src/services/metadata-model"
 import { METADATA_R2_KEY, META_WORKS_KEY } from "../../src/lib/constants"
 import { SEED_WORKS, SEED_PERSONS, SEED_METADATA_JSON } from "../fixtures/seed"
@@ -179,4 +179,54 @@ it.each(["missing", "malformed", "transport"])("rejects a %s pointer after migra
   for (const result of results) expect(result).toMatchObject({ status: "rejected", reason: { status: 503 } })
   expect(spy.mock.calls.filter(([key]) => key === CURRENT_KEY)).toHaveLength(1)
   expect(spy.mock.calls.some(([key]) => key === METADATA_R2_KEY)).toBe(false)
+})
+
+it("retains metadata cleanup and fences a retired read from its replacement", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  const owner = { waitUntil: vi.fn() }
+  let oldRelease!: (value: null) => void, nextRelease!: (value: null) => void
+  let reads = 0
+  const binding = { ...env, R2: { get: (key: string) => {
+    if (key !== CURRENT_KEY) return Promise.resolve(null)
+    reads++
+    return new Promise<null>(resolve => { if (reads === 1) oldRelease = resolve; else nextRelease = resolve })
+  } } as unknown as R2Bucket }
+  const first = getMetadata(binding, owner).catch(error => error)
+  await Promise.resolve(); await Promise.resolve()
+  expect(owner.waitUntil).toHaveBeenCalledOnce()
+  vi.setSystemTime(Date.now() + 20_001)
+  const second = getMetadata(binding).catch(error => error)
+  await Promise.resolve(); await Promise.resolve()
+  await first
+  oldRelease(null)
+  await Promise.resolve(); await Promise.resolve()
+  const joined = getMetadata(binding).catch(error => error)
+  expect(reads).toBe(2)
+  nextRelease(null)
+  await Promise.all([second, joined])
+})
+
+it("retains and reclaims shared generation reads used by previous-work lookup", async () => {
+  const reference = await snapshot("previous")
+  vi.useFakeTimers({ toFake: ["Date"] })
+  const owner = { waitUntil: vi.fn() }
+  let oldRelease!: (value: null) => void, nextRelease!: (value: null) => void
+  const read = vi.fn(() => new Promise<null>(resolve => {
+    if (read.mock.calls.length === 1) oldRelease = resolve; else nextRelease = resolve
+  }))
+  const binding = { ...env, KV: { get: read } as unknown as KVNamespace }
+  const metadata = { ...JSON.parse(SEED_METADATA_JSON), generation: "current", state: "current" as const, validatedAt: null, previous: reference }
+  const first = getPreviousWork(binding, metadata, SEED_WORKS[0].id, owner)
+  await Promise.resolve(); await Promise.resolve()
+  expect(owner.waitUntil).toHaveBeenCalledOnce()
+  vi.setSystemTime(Date.now() + 5001)
+  const second = getPreviousWork(binding, metadata, SEED_WORKS[0].id)
+  await Promise.resolve(); await Promise.resolve()
+  expect(await first).toBeUndefined()
+  oldRelease(null)
+  const joined = getPreviousWork(binding, metadata, SEED_WORKS[0].id)
+  expect(read).toHaveBeenCalledTimes(2)
+  nextRelease(null)
+  expect(await second).toEqual(SEED_WORKS[0])
+  expect(await joined).toEqual(SEED_WORKS[0])
 })

@@ -32,7 +32,7 @@ persons.get("/persons", async (c) => {
   const name = c.req.query("name")
   if (name) params.name = name
 
-  const allPersons = await getPersons(c.env)
+  const allPersons = await getPersons(c.env, c.executionCtx)
   const filtered = filterPersons(allPersons, params)
   const sorted = sortPersons(filtered, sort, order)
   const result = paginate(sorted, page, perPage)
@@ -43,7 +43,7 @@ persons.get("/persons", async (c) => {
 // T015: GET /persons/:id — person detail
 persons.get("/persons/:id", async (c) => {
   const id = c.req.param("id")
-  const allPersons = await getPersons(c.env)
+  const allPersons = await getPersons(c.env, c.executionCtx)
   const person = allPersons.find((p) => p.id === id)
 
   if (!person) {
@@ -57,7 +57,7 @@ persons.get("/persons/:id", async (c) => {
 persons.get("/persons/:id/works", async (c) => {
   const id = c.req.param("id")
   const { page, perPage } = parsePagination(c)
-  const { works: allWorks, persons: allPersons } = await getMetadata(c.env)
+  const { works: allWorks, persons: allPersons } = await getMetadata(c.env, c.executionCtx)
   const person = allPersons.find((p) => p.id === id)
 
   if (!person) {

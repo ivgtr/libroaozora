@@ -1,3 +1,5 @@
+import { liveTask, retainTask, startTask } from "./shared-task"
+import type { SharedTask, TaskLifetime } from "./shared-task"
 import type { Env } from "../env"
 
 export class SourceError extends Error {
@@ -12,7 +14,7 @@ export class SourceError extends Error {
 
 type Result = { text: string; cacheHit: boolean }
 type State = {
-  active: Map<string, Promise<unknown>>
+  active: Map<string, SharedTask<unknown>>
   cooldown: Map<string, { until: number; error: SourceError }>
 }
 let states = new WeakMap<Env, State>()
@@ -55,16 +57,21 @@ export function positiveLimit(value: string | undefined, fallback: number): numb
   return Number.isSafeInteger(n) && n > 0 ? n : fallback
 }
 
-export async function shareContent<T = Result>(env: Env, key: string, operation: () => Promise<T>): Promise<T> {
+export async function shareContent<T = Result>(env: Env, key: string, operation: () => Promise<T>, lifetime?: TaskLifetime): Promise<T> {
   const state = stateFor(env)
-  const existing = state.active.get(key)
-  if (existing) return existing as Promise<T>
+  for (const task of state.active.values()) liveTask(task)
+  const existing = liveTask(state.active.get(key))
+  if (existing) return retainTask(existing, lifetime) as Promise<T>
   if (state.active.size >= positiveLimit(env.CONTENT_MAX_CONCURRENT, 2)) {
     throw new SourceError("Content concurrency limit reached", "temporary")
   }
-  const pending = Promise.resolve().then(operation)
-  state.active.set(key, pending)
-  try { return await pending } finally { state.active.delete(key) }
+  // Leave margin below Workers' 30-second post-disconnect waitUntil window.
+  const duration = Math.min(positiveLimit(env.CONTENT_TIMEOUT_MS, 20_000), 25_000)
+  const task = startTask(operation, duration, () => new SourceError("Shared content deadline exceeded", "temporary"), task => {
+    if (state.active.get(key) === task) state.active.delete(key)
+  })
+  state.active.set(key, task)
+  return retainTask(task, lifetime)
 }
 
 export function resetContentControlForTesting(): void { states = new WeakMap() }

@@ -11,7 +11,7 @@ function isServiceUnavailable(e: unknown): boolean {
 
 health.get("/health", async (c) => {
   try {
-    const { works, persons, syncedAt, generation, state } = await getMetadata(c.env)
+    const { works, persons, syncedAt, generation, state } = await getMetadata(c.env, c.executionCtx)
 
     return c.json({
       status: "ok",
@@ -35,7 +35,7 @@ health.get("/health", async (c) => {
 })
 
 health.get("/stats", async (c) => {
-  const { works, persons, syncedAt, generation, state } = await getMetadata(c.env)
+  const { works, persons, syncedAt, generation, state } = await getMetadata(c.env, c.executionCtx)
 
   const publicDomainWorks = works.filter((w) => !w.copyrightFlag).length
 

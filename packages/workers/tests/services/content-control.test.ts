@@ -70,3 +70,42 @@ describe("isolate fetch control", () => {
     for (const value of [null, "", "bad", "-1", "0", "Sat, 05 Sep 2026 00:00:00 GMT"]) expect(retryAfterMs(value, now)).toBe(60_000)
   })
 })
+
+it("retains shared completion including cleanup in the creator and joiner contexts", async () => {
+  let release!: () => void
+  const owner = { waitUntil: vi.fn() }, joiner = { waitUntil: vi.fn() }
+  const first = shareContent(env, "retained", () => new Promise<void>(resolve => { release = resolve }), owner)
+  const second = shareContent(env, "retained", async () => { throw new Error("must share") }, joiner)
+  await Promise.resolve()
+  expect(owner.waitUntil).toHaveBeenCalledOnce()
+  expect(joiner.waitUntil).toHaveBeenCalledOnce()
+  release()
+  await Promise.all([first, second, owner.waitUntil.mock.calls[0][0]])
+  expect(await shareContent(env, "retained", async () => "new task")).toBe("new task")
+})
+
+it("reclaims orphaned slots by wall time and fences late cleanup from their replacement", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] }) // Do not fire the creator's timer: simulate its lost context.
+  const binding = { ...env, CONTENT_MAX_CONCURRENT: "1", CONTENT_TIMEOUT_MS: "1000" }
+  let oldRelease!: () => void, newRelease!: () => void
+  const first = shareContent(binding, "a", () => new Promise<void>(resolve => { oldRelease = resolve })).catch(error => error)
+  await Promise.resolve()
+  vi.setSystemTime(Date.now() + 1001)
+  const replacement = shareContent(binding, "a", () => new Promise<void>(resolve => { newRelease = resolve }))
+  await Promise.resolve()
+  expect(await first).toBeInstanceOf(SourceError)
+  oldRelease()
+  await Promise.resolve()
+  await expect(shareContent(binding, "b", async () => "wrong")).rejects.toThrow("concurrency")
+  newRelease()
+  await replacement
+  expect(await shareContent(binding, "b", async () => "recovered")).toBe("recovered")
+})
+
+it("returns a bounded failure and releases the slot even when the operation never settles", async () => {
+  const owner = { waitUntil: vi.fn() }
+  const binding = { ...env, CONTENT_MAX_CONCURRENT: "1", CONTENT_TIMEOUT_MS: "20" }
+  await expect(shareContent(binding, "hung", () => new Promise(() => {}), owner)).rejects.toThrow("deadline")
+  await owner.waitUntil.mock.calls[0][0]
+  expect(await shareContent(binding, "next", async () => "ok")).toBe("ok")
+})

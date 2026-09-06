@@ -1,3 +1,4 @@
+import { createExecutionContext } from "cloudflare:test"
 import { afterEach, expect, it, vi } from "vitest"
 import { env } from "cloudflare:workers"
 import type { Work, Delivery } from "@libroaozora/core"
@@ -30,7 +31,7 @@ it("migrates legacy metadata, detects same-URL corrections, serves a known previ
   expect(fetchMock).not.toHaveBeenCalled()
   // The first request after publication must succeed even with a cached absence.
   vi.setSystemTime(Date.now() + 1_000)
-  const request = () => app.fetch(new Request("http://local/v1/works/047927/content?format=raw"), env)
+  const request = () => app.fetch(new Request("http://local/v1/works/047927/content?format=raw"), env, createExecutionContext())
   const initial = await (await request()).json() as { content: string; delivery: Delivery; work: Work }
   expect(initial.delivery.verification).toBe("current")
   expect(initial.content).toBe(fixture.text)

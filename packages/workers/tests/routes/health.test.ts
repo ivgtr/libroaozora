@@ -1,8 +1,9 @@
+import { createExecutionContext } from "cloudflare:test"
 import { describe, it, expect, beforeAll, beforeEach } from "vitest"
 import { env } from "cloudflare:workers"
 import app from "../../src/index"
 import { resetMetadataForTesting } from "../../src/services/metadata"
-const exports = { default: { fetch: (url: string) => app.fetch(new Request(url), env) } }
+const exports = { default: { fetch: (url: string) => app.fetch(new Request(url), env, createExecutionContext()) } }
 import type { ErrorResponse } from "@libroaozora/core"
 import {
   seedKV, METADATA_R2_KEY, META_WORKS_KEY, META_PERSONS_KEY, META_SYNCED_AT_KEY,

@@ -1,0 +1,167 @@
+{
+  "runtime": "local workerd over separate HTTP sockets",
+  "rows": [
+    {
+      "timing": "after-disconnect",
+      "phase": "metadata-kv",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "after-disconnect",
+      "phase": "metadata-r2",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "after-disconnect",
+      "phase": "metadata-body",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "after-disconnect",
+      "phase": "content-kv",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 1
+    },
+    {
+      "timing": "after-disconnect",
+      "phase": "content-r2",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "after-disconnect",
+      "phase": "content-body",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "after-disconnect",
+      "phase": "origin",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 1
+    },
+    {
+      "timing": "after-disconnect",
+      "phase": "origin-body",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 1
+    },
+    {
+      "timing": "after-disconnect",
+      "phase": "origin-timeout",
+      "ownerSocketClosed": true,
+      "follower": 500,
+      "retry": 200,
+      "slot": 200,
+      "origins": 1
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "metadata-kv",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "metadata-r2",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "metadata-body",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "content-kv",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 1
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "content-r2",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "content-body",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 0
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "origin",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 1
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "origin-body",
+      "ownerSocketClosed": true,
+      "follower": 200,
+      "retry": 200,
+      "slot": 200,
+      "origins": 1
+    },
+    {
+      "timing": "before-disconnect",
+      "phase": "origin-timeout",
+      "ownerSocketClosed": true,
+      "follower": 500,
+      "retry": 200,
+      "slot": 200,
+      "origins": 1
+    }
+  ]
+}

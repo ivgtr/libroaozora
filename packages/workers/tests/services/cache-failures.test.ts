@@ -1,3 +1,4 @@
+import { createExecutionContext } from "cloudflare:test"
 import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { env } from "cloudflare:workers"
 import app from "../../src/index"
@@ -43,7 +44,7 @@ it("metadata KV failure still reaches the real content route through R2", async 
   vi.spyOn(env.KV, "get").mockRejectedValue(new Error("KV down"))
   vi.spyOn(env.KV, "put").mockRejectedValue(new Error("KV down"))
   const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(zip()))
-  const response = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
+  const response = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env, createExecutionContext())
   expect(response.status).toBe(200)
   expect(await response.json()).toHaveProperty("content", fixture.text)
   expect(fetchMock).toHaveBeenCalledOnce()
@@ -54,7 +55,7 @@ it("restored metadata still denies copyrighted content", async () => {
   await env.R2.put(METADATA_R2_KEY, JSON.stringify(data))
   vi.spyOn(env.KV, "get").mockRejectedValue(new Error("KV down"))
   const fetchMock = vi.spyOn(globalThis, "fetch")
-  const response = await app.fetch(new Request("https://test/v1/works/047927/content"), env)
+  const response = await app.fetch(new Request("https://test/v1/works/047927/content"), env, createExecutionContext())
   expect(response.status).toBe(403)
   expect(fetchMock).not.toHaveBeenCalled()
 })
@@ -70,7 +71,7 @@ it("metadata R2 body failure does not delete data and returns 503", async () => 
 it("all metadata stores failing produces 503", async () => {
   vi.spyOn(env.KV, "get").mockRejectedValue(new Error("KV down"))
   vi.spyOn(env.R2, "get").mockRejectedValue(new Error("R2 down"))
-  const response = await app.fetch(new Request("https://test/v1/works/047927/content"), env)
+  const response = await app.fetch(new Request("https://test/v1/works/047927/content"), env, createExecutionContext())
   expect(response.status).toBe(503)
 })
 it.each(["corrupt", "timeout"])("does not save %s origin responses", async kind => {

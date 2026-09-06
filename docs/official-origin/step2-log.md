@@ -100,3 +100,9 @@ GitHub認証とrepository secrets/variables・Production deployment履歴を読�
 workerd回帰テストを5件追加。legacy読取りから1秒後に正常公開した場合、最初の1件/16件がすべてcurrentを返し、R2 current再読取りは各要求群で1回。validatedAtは再確認時刻で、次の通常cache hitでは再取得しない。欠落・破損・通信失敗はそれぞれ16件すべて503、current再読取り1回、legacy再読取り0回。既存の実writer→本文routeの移行試験も、公開後60秒待ちから1秒待ちに変えて成功した。
 
 今回再実行: pnpm -r testはcore61/Workers136/Node8、計205件成功。pnpm -r --parallel lint、Workers lint:test、pnpm build（core/Web production/Workers dry-run）成功。前回3件の回帰も含む。ログは/tmp/official-origin-pr8-marker-refresh。以前のpnpm一時配置がなかったため指定10.33.0を同ディレクトリへ再取得した。製品依存・lockfileは変更していない。マージ・本番操作は未実施。
+
+## PR #7の共有タスク寿命修正の取込み
+
+作成元でcleanupを含む共有PromiseをwaitUntilへ登録し、絶対期限・後続要求による回収・解放時の同一性確認を導入。PR #8で追加済みのmetadata復旧と共有旧版取得を保持し、世代別snapshot読込みと旧版候補にも適用する。検証証拠とローカルHTTP切断の再現限界は [PR #7検証記録](../investigations/pr7-request-lifecycle.md) を参照。
+
+取込み後の最終結果: core61 / Workers141 / Node同期8 tests、workspace lint、script/test型、Wrangler dry-run成功。versioned APIの実HTTP切断18ケースで正常200/期限内503、再アクセス/別作品枠回復200を確認。metadata全体20秒・snapshot5秒とし、失効した処理の後着状態反映も防止した。

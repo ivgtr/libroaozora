@@ -1,3 +1,4 @@
+import type { TaskLifetime } from "./shared-task"
 import { sourceRevision, sha256, DECODE_VERSION, contentIdentifier } from "@libroaozora/core"
 import type { Work, Delivery } from "@libroaozora/core"
 import type { Env } from "../env"
@@ -99,8 +100,8 @@ async function currentContent(env: Env, work: Work, revision: string, deadline: 
   if (mayWriteKV) await saveKV(env, result.entry)
   return result
 }
-async function staleContent(env: Env, work: Work, metadata: Metadata): Promise<Found | undefined> {
-  const previous = await getPreviousWork(env, metadata, work.id)
+async function staleContent(env: Env, work: Work, metadata: Metadata, lifetime?: TaskLifetime): Promise<Found | undefined> {
+  const previous = await getPreviousWork(env, metadata, work.id, lifetime)
   if (previous?.sourceUrls.text && !previous.copyrightFlag) {
     const revision = await sourceRevision(previous)
     const entry = await readKV(env, previous, revision) ?? (await readR2(env, previous, revision)).entry
@@ -122,19 +123,19 @@ async function staleContent(env: Env, work: Work, metadata: Metadata): Promise<F
     if (text !== null) return { entry: await envelope(work, null, text, null, null), stale: true, cacheHit: true }
   } catch (error) { console.warn("Legacy text unavailable", { workId: work.id, error }) }
 }
-export async function getVersionedContent(env: Env, work: Work, metadata: Metadata): Promise<{ text: string; cacheHit: boolean; delivery: Delivery }> {
+export async function getVersionedContent(env: Env, work: Work, metadata: Metadata, lifetime?: TaskLifetime): Promise<{ text: string; cacheHit: boolean; delivery: Delivery }> {
   const deadline = Date.now() + limits(env).totalMs
   const revision = await sourceRevision(work)
   // Share version acquisition, then construct delivery from each caller's own snapshot.
   let found: Found
   try {
-    found = await within(async () => await shareContent(env, JSON.stringify([work.id, revision]), () => currentContent(env, work, revision, deadline)), deadline - Date.now())
+    found = await within(async () => await shareContent(env, JSON.stringify([work.id, revision]), () => currentContent(env, work, revision, deadline), lifetime), deadline - Date.now())
   } catch (error) {
     if (!(error instanceof SourceError) || error.kind !== "temporary") throw error
     // Candidate sets depend on the caller's previous reference, not just the current work.
     // Use the same limiter as current acquisition, with a separate shared promise.
     const staleKey = JSON.stringify(["stale", work.id, revision, metadata.previous?.generation ?? null, metadata.previous?.digest ?? null])
-    const old = await within(async () => await shareContent(env, staleKey, () => staleContent(env, work, metadata)), deadline - Date.now()).catch(() => undefined)
+    const old = await within(async () => await shareContent(env, staleKey, () => staleContent(env, work, metadata, lifetime), lifetime), deadline - Date.now()).catch(() => undefined)
     if (!old) throw error
     found = old
   }
