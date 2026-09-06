@@ -106,3 +106,18 @@ workerd回帰テストを5件追加。legacy読取りから1秒後に正常公�
 作成元でcleanupを含む共有PromiseをwaitUntilへ登録し、絶対期限・後続要求による回収・解放時の同一性確認を導入。PR #8で追加済みのmetadata復旧と共有旧版取得を保持し、世代別snapshot読込みと旧版候補にも適用する。検証証拠とローカルHTTP切断の再現限界は [PR #7検証記録](../investigations/pr7-request-lifecycle.md) を参照。
 
 取込み後の最終結果: core61 / Workers141 / Node同期8 tests、workspace lint、script/test型、Wrangler dry-run成功。versioned APIの実HTTP切断18ケースで正常200/期限内503、再アクセス/別作品枠回復200を確認。metadata全体20秒・snapshot5秒とし、失効した処理の後着状態反映も防止した。
+共有処理の作成元でcleanupを含むPromiseをwaitUntilへ登録し、期限と後続要求による回収・旧タスクの解放競合防止を追加。core59/Workers111・型/lint/dry-run、実HTTP切断18シナリオを確認した。対照実行では所有I/Oコンテキスト破棄を再現できていないため、動作確認と元不具合の再現を区別して [検証記録](../investigations/pr7-request-lifecycle.md) に残した。
+
+## PR #7再レビュー対応: 保存待ちと全体期限の競合
+
+取得と共有タスクに単一の期限を渡し、best-effort保存の締切を250ms（全体期限が短い場合はその10%）早めた。既定20秒・上限25秒は延長せず、保存締切を過ぎて取得できた正常本文は保存を開始せず返す。waitUntil登録・期限切れ回収・同一性チェックは維持。
+
+追加テストはworkerd上のVitestで仮想時計・ストレージ/fetchスタブ・実ZIP変換を使用。KV/R2読取り各2.99秒、公式取得9.9秒、両保存未完了の条件は変更前に `Shared content deadline exceeded` で失敗し、変更後は正常本文を返す。R2のみ/KVのみの保存停止、取得が保存締切後、本文未取得の期限切れ、同時実行枠の解放も検証した。実HTTPでの保存停止再現ではない。
+
+検証: core59件、Workers116件、全パッケージlint・Workersテスト型チェック、Workers dry-run成功。既存HTTP切断18シナリオも再実行。ログは `/tmp/pr7-save-deadline/`。本番操作・依存更新なし。
+
+### Cへの保存締切の適用
+
+PR #7の修正を取り込み、版付き本文でも要求側と共有側の早い期限を基準に保存を打ち切る。条件付きR2保存の競合相手を読む処理も保存締切内とし、その読取りが完了しないときは取得済み本文をunverifiedとして返し、KVへ競合側の本文を書かない。
+
+追加のworkerd試験は実時計で全体1秒・公式取得700msとし、R2保存/KV保存/両保存/競合相手読取りが未完了でも正常本文を返す4条件を確認。core61件、Workers150件、Node同期8件、全package lint・script/test型チェック、core build・Workers dry-run、版付きAPIの既存HTTP切断18シナリオが成功。HTTP切断試験の以前の再現限界は変更なし。metadataの既存レビュー修正は保持。本番操作なし。

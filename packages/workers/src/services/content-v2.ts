@@ -4,7 +4,7 @@ import type { Work, Delivery } from "@libroaozora/core"
 import type { Env } from "../env"
 import type { Metadata } from "./metadata"
 import { getPreviousWork } from "./metadata"
-import { SourceError, shareContent } from "./content-control"
+import { SourceError, shareContent, contentBudget } from "./content-control"
 import { fetchSource, validateText, decodeContentZip } from "./content"
 import { limits, readBounded, within } from "./content-limits"
 
@@ -61,17 +61,17 @@ async function readR2(env: Env, work: Work, revision: string): Promise<{ entry?:
     return { entry, etag }
   } catch (error) { console.error("Content cache failed", { workId: work.id, revision, stage, error }); return { etag } }
 }
-async function saveKV(env: Env, entry: ContentEnvelope) {
+async function saveKV(env: Env, entry: ContentEnvelope, storageDeadline: number) {
   try {
-    await within(() => env.KV.put(contentKVKey(entry.workId, entry.sourceRevision!), JSON.stringify(entry), { expirationTtl: TTL }), 1500)
+    await within(() => env.KV.put(contentKVKey(entry.workId, entry.sourceRevision!), JSON.stringify(entry), { expirationTtl: TTL }), Math.min(1500, storageDeadline - Date.now()))
     console.info("Content storage saved", { workId: entry.workId, revision: entry.sourceRevision, stage: "v2-kv-write" })
   } catch (error) { console.error("Content cache failed", { workId: entry.workId, stage: "v2-kv-write", error }) }
 }
-async function currentContent(env: Env, work: Work, revision: string, deadline: number): Promise<Found> {
+async function currentContent(env: Env, work: Work, revision: string, deadline: number, storageDeadline: number): Promise<Found> {
   const cached = await readKV(env, work, revision)
   if (cached) return { entry: cached, cacheHit: true }
   const stored = await readR2(env, work, revision)
-  if (stored.entry) { await saveKV(env, stored.entry); return { entry: stored.entry, cacheHit: true } }
+  if (stored.entry) { await saveKV(env, stored.entry, storageDeadline); return { entry: stored.entry, cacheHit: true } }
   const key = JSON.stringify([work.id, revision])
   const { data, text } = await fetchSource(work.id, work.sourceUrls.text!, env, key, deadline)
   const entry = await envelope(work, revision, text, await sha256(data), new Date().toISOString())
@@ -81,13 +81,17 @@ async function currentContent(env: Env, work: Work, revision: string, deadline: 
     const put = await within(() => env.R2.put(contentR2Key(work.id, revision), data, {
       onlyIf: stored.etag ? { etagMatches: stored.etag } : { etagDoesNotMatch: "*" },
       customMetadata: { sourceUrl: entry.sourceUrl, sourceRevision: revision, fetchedAt: entry.fetchedAt!, zipHash: entry.zipHash!, textHash: entry.textHash, decodeVersion: DECODE_VERSION },
-    }), 1500)
+    }), Math.min(1500, storageDeadline - Date.now()))
     if (put === null) {
-      const winner = await readR2(env, work, revision)
+      // A timed-out winner read must not publish the losing entry as current.
+      mayWriteKV = false
+      result.conflict = true
+      const winner = await within(() => readR2(env, work, revision), storageDeadline - Date.now())
       if (!winner.entry) { mayWriteKV = false; result.conflict = true }
       else {
         const conflict = winner.entry.zipHash !== entry.zipHash || winner.entry.textHash !== entry.textHash
         result = { entry: winner.entry, cacheHit: false, conflict }
+        mayWriteKV = !conflict
         if (conflict) {
           mayWriteKV = false
           console.error("Content revision conflict", { workId: work.id, revision, observedZipHash: entry.zipHash, storedZipHash: winner.entry.zipHash, observedTextHash: entry.textHash, storedTextHash: winner.entry.textHash })
@@ -97,7 +101,7 @@ async function currentContent(env: Env, work: Work, revision: string, deadline: 
   } catch (error) {
     console.error("Content cache failed", { workId: work.id, revision, stage: "v2-r2-write", error })
   }
-  if (mayWriteKV) await saveKV(env, result.entry)
+  if (mayWriteKV) await saveKV(env, result.entry, storageDeadline)
   return result
 }
 async function staleContent(env: Env, work: Work, metadata: Metadata, lifetime?: TaskLifetime): Promise<Found | undefined> {
@@ -124,12 +128,12 @@ async function staleContent(env: Env, work: Work, metadata: Metadata, lifetime?:
   } catch (error) { console.warn("Legacy text unavailable", { workId: work.id, error }) }
 }
 export async function getVersionedContent(env: Env, work: Work, metadata: Metadata, lifetime?: TaskLifetime): Promise<{ text: string; cacheHit: boolean; delivery: Delivery }> {
-  const deadline = Date.now() + limits(env).totalMs
+  const { deadline, storageDeadline } = contentBudget(env)
   const revision = await sourceRevision(work)
   // Share version acquisition, then construct delivery from each caller's own snapshot.
   let found: Found
   try {
-    found = await within(async () => await shareContent(env, JSON.stringify([work.id, revision]), () => currentContent(env, work, revision, deadline), lifetime), deadline - Date.now())
+    found = await within(async () => await shareContent(env, JSON.stringify([work.id, revision]), budget => currentContent(env, work, revision, Math.min(deadline, budget.deadline), Math.min(storageDeadline, budget.storageDeadline)), lifetime), deadline - Date.now())
   } catch (error) {
     if (!(error instanceof SourceError) || error.kind !== "temporary") throw error
     // Candidate sets depend on the caller's previous reference, not just the current work.

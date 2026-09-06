@@ -151,3 +151,23 @@ it("does not share previous-version contents across different metadata reference
   expect(results.map(result => result.text)).toEqual(["old text 10", "old text 11"])
   expect(results.map(result => result.delivery.metadataGeneration)).toEqual(["caller-10", "caller-11"])
 })
+
+it.each(["r2", "kv", "both", "winner-read"])("returns validated versioned content when %s outlasts the storage deadline", async stage => {
+  const scopedEnv = { ...env, CONTENT_TIMEOUT_MS: "1000" }
+  const stalled = () => new Promise<never>(() => {})
+  vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
+    await new Promise(resolve => setTimeout(resolve, 700))
+    return new Response(zip())
+  })
+  if (stage !== "r2") vi.spyOn(env.KV, "put").mockImplementation(stalled)
+  if (stage === "r2" || stage === "both") vi.spyOn(env.R2, "put").mockImplementation(stalled)
+  if (stage === "winner-read") {
+    // Vitest selects the unconditional overload; the production call uses onlyIf.
+    vi.spyOn(env.R2, "put").mockImplementation((async () => null) as unknown as R2Bucket["put"])
+    vi.spyOn(env.R2, "get").mockResolvedValueOnce(null).mockImplementation(stalled)
+  }
+  const result = await getVersionedContent(scopedEnv, work, metadata)
+  expect(result.text).toBe(fixture.text)
+  expect(result.delivery.verification).toBe(stage === "winner-read" ? "unverified" : "current")
+  if (stage === "winner-read") expect(env.KV.put).not.toHaveBeenCalled()
+})

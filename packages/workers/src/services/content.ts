@@ -1,3 +1,4 @@
+import type { ContentBudget } from "./content-control"
 import type { TaskLifetime } from "./shared-task"
 import { decompress, decode } from "@libroaozora/core"
 import { limits, readBounded, within } from "./content-limits"
@@ -43,15 +44,14 @@ export async function getContent(
   lifetime?: TaskLifetime,
 ): Promise<{ text: string; cacheHit: boolean }> {
   const key = JSON.stringify([workId, sourceUrl])
-  return shareContent(env, key, () => loadContent(workId, sourceUrl, env, key), lifetime)
+  return shareContent(env, key, budget => loadContent(workId, sourceUrl, env, key, budget), lifetime)
 }
 
-async function loadContent(workId: string, sourceUrl: string, env: Env, key: string): Promise<{ text: string; cacheHit: boolean }> {
+async function loadContent(workId: string, sourceUrl: string, env: Env, key: string, { deadline, storageDeadline }: ContentBudget): Promise<{ text: string; cacheHit: boolean }> {
   const bounds = limits(env)
-  const deadline = Date.now() + bounds.totalMs
   const kvKey = `content:${workId}`
   const run = <T>(stage: string, operation: () => T | Promise<T>) =>
-    contentStage(workId, stage, () => within(operation, Math.min(3000, deadline - Date.now())))
+    contentStage(workId, stage, () => within(operation, Math.min(3000, (stage.endsWith("write") ? storageDeadline : deadline) - Date.now())))
 
   // Layer 1: KV (hot cache)
   try {
