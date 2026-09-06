@@ -96,3 +96,58 @@ it("an old acquisition finishing later cannot overwrite a new revision", async (
   const saved = await env.KV.get<ContentEnvelope>(contentKVKey(work.id, await sourceRevision(changed)), "json")
   expect(saved?.text).toBe(newer.text)
 })
+
+it.each([false, true])("shares fallback work and caps distinct candidate sets (distinct=%s)", async distinct => {
+  const scopedEnv = { ...env, CONTENT_MAX_CONCURRENT: "2" }
+  const legacyKey = new URL(work.sourceUrls.text!).pathname.slice(1)
+  await env.R2.put(legacyKey, zip())
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 503 }))
+  let release!: () => void, ready!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  const started = new Promise<void>(resolve => { ready = resolve })
+  let reads = 0, active = 0, peak = 0
+  const get = env.R2.get.bind(env.R2)
+  vi.spyOn(env.R2, "get").mockImplementation(async (key, options) => {
+    if (key !== legacyKey) return get(key, options)
+    reads++; active++; peak = Math.max(peak, active)
+    if (reads === (distinct ? 2 : 1)) ready()
+    try { await gate; return await get(key, options) } finally { active-- }
+  })
+  const tasks = Array.from({ length: 16 }, (_, index) => getVersionedContent(scopedEnv, work, {
+    ...metadata, generation: `caller-${index}`,
+    previous: distinct ? { generation: `candidate-${index}`, digest: "0".repeat(64) } : null,
+  }))
+  // Attach rejection handlers before releasing the storage barrier.
+  const completed = Promise.allSettled(tasks)
+  await started
+  release()
+  const results = await completed
+  const success = results.filter(result => result.status === "fulfilled")
+  expect(reads).toBe(distinct ? 2 : 1)
+  expect(peak).toBe(distinct ? 2 : 1)
+  expect(success).toHaveLength(distinct ? 2 : 16)
+  for (let index = 0; index < results.length; index++) {
+    const result = results[index]
+    if (result.status === "fulfilled") {
+      expect(result.value.text).toBe(fixture.text)
+      expect(result.value.delivery).toMatchObject({ metadataGeneration: `caller-${index}`, verification: "stale" })
+    }
+  }
+})
+it("does not share previous-version contents across different metadata references", async () => {
+  const { seedContent } = await import("../fixtures/seed")
+  const { snapshotKey } = await import("../../src/services/metadata-model")
+  const contexts: Metadata[] = []
+  for (const count of [10, 11]) {
+    const old = { ...work, textSource: { updatedAt: "2013-08-08", revisionCount: count } }
+    await seedContent(env.KV, old, `old text ${count}`)
+    const generation = `previous-${count}`
+    const text = JSON.stringify({ schemaVersion: 1, generation, works: [old], persons: [], syncedAt: metadata.syncedAt })
+    await env.R2.put(snapshotKey(generation), text)
+    contexts.push({ ...metadata, generation: `caller-${count}`, previous: { generation, digest: await sha256(text) } })
+  }
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 503 }))
+  const results = await Promise.all(contexts.map(context => getVersionedContent(env, work, context)))
+  expect(results.map(result => result.text)).toEqual(["old text 10", "old text 11"])
+  expect(results.map(result => result.delivery.metadataGeneration)).toEqual(["caller-10", "caller-11"])
+})

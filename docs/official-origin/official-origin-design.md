@@ -132,3 +132,13 @@ Cからstale/unverified/error応答はno-store。Dで正常本文APIをs-maxage=
 役割「その他」6行も正当な入力として検証を通す。人物は保持し、既存core同様に対応外の著者roleへ変換しない。重複作品/人物の内容矛盾、列/行/権利/ID/URL不正は同期公開前に拒否する。legacy R2キーは資料のmetadata.jsonではなく実装上のmetadata/all.jsonであり、移行でも実キーを保持した。
 
 新metadataの全量は17,840作品/1,335人物、data JSON 12,343,398 bytes。ローカルworkerdでsnapshot 12,343,481 bytesのcold/hit/同時要求を確認した。CPU時間・isolateピークメモリは未測定で、本番実行枠適合を断定しない。
+
+## PR #8レビュー修正: 移行と復旧範囲の保護
+
+`metadata/migrated.json`（schemaVersion: 1）を一方向の移行済みマーカーとして追加する。writerはsnapshot保存・検証後、current公開より前にマーカーを保存・読戻す。currentがなくマーカーがある状態を初回移行として再初期化しない。初回current公開が失敗した場合もマーカーを残し、検証済みsnapshotから正常pointerを復旧する。マーカー自体を削除してlegacyを再有効化しない。readerはマーカーが読めない場合もlegacyへ戻さない。
+
+同一isolateで一度でもv2 pointerを観測した後は、欠落してもlegacyを読み直さない。保持している正常v2を未検証として返すか503とする。cold isolateは上記マーカーで判別する。currentとマーカーの両方を失う事故まで自動判別できる仕組みではないため、マーカーをlifecycle削除対象から除外する。
+
+ポインタの通信失敗とsnapshotの取得失敗を分離する。正常に取得したpointerが指定するcurrent/previousだけを復旧先とし、メモリ内snapshotもgenerationとdigestの一致を要求する。最後の成功結果がこの参照外になった後は、後続のpointer通信失敗でも再利用しない。pointer破損は503とする。
+
+旧本文の取得・ZIP展開・hash計算にも通常経路と共通の同時実行上限を適用する。共有キーはstale用名前空間、作品ID、現sourceRevision、previousのgeneration/digest。候補集合が同じ要求を共有し、異なるpreviousを混ぜない。deliveryは共有結果から各呼出元のmetadataに合わせて構築する。上限超過は待機列を増やさず再試行可能な失敗とする。

@@ -1,5 +1,5 @@
 import { csvParse, parseCSV, sourceDate, sourceCount, sha256 } from "@libroaozora/core"
-import { CURRENT_KEY, snapshotKey, metadataKey, parsePointer, parseSnapshot, validateData } from "../src/services/metadata-model"
+import { CURRENT_KEY, MIGRATED_KEY, MIGRATED_VALUE, snapshotKey, metadataKey, parsePointer, parseSnapshot, validateData } from "../src/services/metadata-model"
 import type { Snapshot, Pointer, Reference } from "../src/services/metadata-model"
 import { METADATA_R2_KEY, METADATA_TTL } from "../src/lib/constants"
 
@@ -39,6 +39,7 @@ export function validateCSV(csv: string) {
 export async function publishSnapshot(store: MetadataStore, snapshot: Snapshot): Promise<Pointer> {
   validateData(snapshot)
   const beforeText = await store.readR2(CURRENT_KEY)
+  if (beforeText === null && await store.readR2(MIGRATED_KEY) !== null) throw new Error("Migrated metadata pointer missing; restore the verified pointer before syncing")
   const before = beforeText === null ? null : parsePointer(beforeText)
   const text = JSON.stringify(snapshot)
   const reference = { generation: snapshot.generation, digest: await sha256(text) }
@@ -50,6 +51,7 @@ export async function publishSnapshot(store: MetadataStore, snapshot: Snapshot):
     const old = await parseSnapshot(oldText, before.current)
     if (old.generation === snapshot.generation) {
       if (before.current.digest !== reference.digest) throw new Error("Conflicting repeated generation")
+      await markMigrated(store)
       return before
     }
     if (Date.parse(old.syncedAt) >= Date.parse(snapshot.syncedAt)) throw new Error("Metadata publication would reverse time")
@@ -68,6 +70,8 @@ export async function publishSnapshot(store: MetadataStore, snapshot: Snapshot):
   await saveImmutable(store, reference, text)
   try { await store.writeKV(metadataKey(snapshot.generation), text, METADATA_TTL) }
   catch (error) { console.error("Metadata KV publication failed", { generation: snapshot.generation, error }) }
+  // Persist the one-way migration guard before exposing any v2 pointer.
+  await markMigrated(store)
   // The workflow serializes publishers; reject a changed pointer rather than overwriting it.
   if (await store.readR2(CURRENT_KEY) !== beforeText) throw new Error("Metadata pointer changed during publication")
   const pointer: Pointer = { schemaVersion: 1, current: reference, previous }
@@ -88,4 +92,13 @@ async function saveImmutable(store: MetadataStore, reference: Reference, text: s
   const stored = await store.readR2(key)
   if (stored === null) throw new Error("Missing published snapshot")
   await parseSnapshot(stored, reference)
+}
+
+async function markMigrated(store: MetadataStore) {
+  const existing = await store.readR2(MIGRATED_KEY)
+  if (existing === null) {
+    try { await store.writeR2(MIGRATED_KEY, MIGRATED_VALUE) }
+    catch (error) { if (await store.readR2(MIGRATED_KEY) !== MIGRATED_VALUE) throw error }
+  }
+  if (await store.readR2(MIGRATED_KEY) !== MIGRATED_VALUE) throw new Error("Migration marker verification failed")
 }

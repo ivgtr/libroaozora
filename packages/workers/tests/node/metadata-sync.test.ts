@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest"
 import { publishSnapshot, validateCSV } from "../../scripts/metadata-sync"
 import type { MetadataStore } from "../../scripts/metadata-sync"
 import type { Snapshot } from "../../src/services/metadata-model"
-import { CURRENT_KEY, snapshotKey } from "../../src/services/metadata-model"
+import { CURRENT_KEY, MIGRATED_KEY, MIGRATED_VALUE, snapshotKey } from "../../src/services/metadata-model"
 import { SEED_WORKS, SEED_PERSONS, SEED_SYNCED_AT } from "../fixtures/seed"
 const snapshot = (generation: string, syncedAt = "2026-09-06T01:00:00Z"): Snapshot => ({ schemaVersion: 1, generation, works: SEED_WORKS, persons: SEED_PERSONS, syncedAt })
 function storage() {
@@ -53,4 +53,32 @@ it("accepts real source fields and multiple authors while rejecting malformed in
   expect(validateCSV(csv).works[0].textSource).toEqual({ updatedAt: "2013-08-08", revisionCount: 0 })
   expect(validateCSV(csv + "\n" + row.replace("000001", "000002")).works[0].authors).toHaveLength(2)
   for (const bad of ["", header, csv.replace("なし,なし", ",なし"), csv + ',extra', header + '\n"unclosed', csv + "\n" + row.replace("2013-08-08", "2013-08-09")]) expect(() => validateCSV(bad)).toThrow()
+})
+
+it("verifies the durable migration marker before publishing a pointer", async () => {
+  const { store, values } = storage()
+  vi.mocked(store.writeR2).mockImplementation(async (key, text) => {
+    if (key === CURRENT_KEY) expect(values.get(MIGRATED_KEY)).toBe(MIGRATED_VALUE)
+    values.set(key, text)
+  })
+  await publishSnapshot(store, snapshot("new"))
+  values.delete(CURRENT_KEY)
+  await expect(publishSnapshot(store, snapshot("later", "2026-09-07T00:00:00Z"))).rejects.toThrow("restore")
+  expect(values.has(CURRENT_KEY)).toBe(false)
+})
+it("does not publish without a confirmed marker and preserves the marker after a failed first pointer", async () => {
+  const { store, values } = storage()
+  vi.mocked(store.writeR2).mockImplementation(async (key, text) => {
+    if (key === MIGRATED_KEY) throw new Error("marker failed")
+    values.set(key, text)
+  })
+  await expect(publishSnapshot(store, snapshot("new"))).rejects.toThrow("marker failed")
+  expect(values.has(CURRENT_KEY)).toBe(false)
+  vi.mocked(store.writeR2).mockImplementation(async (key, text) => {
+    if (key === CURRENT_KEY) throw new Error("pointer failed")
+    values.set(key, text)
+  })
+  await expect(publishSnapshot(store, snapshot("new"))).rejects.toThrow("pointer failed")
+  expect(values.get(MIGRATED_KEY)).toBe(MIGRATED_VALUE)
+  expect(values.has(CURRENT_KEY)).toBe(false)
 })

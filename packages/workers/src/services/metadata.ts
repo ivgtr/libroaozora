@@ -4,7 +4,7 @@ import type { Env } from "../env"
 import { throwHttpError } from "../errors"
 import { METADATA_R2_KEY } from "../lib/constants"
 import { within } from "./content-limits"
-import { CURRENT_KEY, metadataKey, snapshotKey, parsePointer, parseSnapshot, validateData } from "./metadata-model"
+import { CURRENT_KEY, MIGRATED_KEY, metadataKey, snapshotKey, parsePointer, parseSnapshot, validateData } from "./metadata-model"
 import type { Pointer, Reference, Snapshot } from "./metadata-model"
 
 export type Metadata = {
@@ -18,6 +18,8 @@ export type Metadata = {
 }
 type State = {
   pointer?: Pointer | null
+  seenV2?: boolean
+  lastReference?: Reference
   checkedAt: number
   pending?: Promise<Metadata>
   last?: Metadata
@@ -69,15 +71,40 @@ export async function getMetadata(env: Env): Promise<Metadata> {
   state.pending = task
   try { return await task } finally { state.pending = undefined }
 }
+function knownVersionedMetadata(state: State): Metadata | undefined {
+  const reference = state.lastReference
+  const matches = (candidate: Reference | null) => candidate && reference && candidate.generation === reference.generation && candidate.digest === reference.digest
+  if (!state.last || !state.pointer || (!matches(state.pointer.current) && !matches(state.pointer.previous))) return undefined
+  return { ...state.last, state: "previous", validatedAt: null }
+}
 async function loadMetadata(env: Env, state: State): Promise<Metadata> {
   try {
     if (state.pointer === undefined || Date.now() - state.checkedAt >= 60_000) {
-      const text = await r2Text(env, CURRENT_KEY)
+      let text: string | null
+      try { text = await r2Text(env, CURRENT_KEY) }
+      catch (error) {
+        const known = knownVersionedMetadata(state)
+        if (!known) throw error
+        console.warn("Metadata pointer transport failed", { error, generation: known.generation })
+        return known
+      }
+      if (text === null && state.seenV2) {
+        // Missing after migration is an outage, never permission to reopen legacy data.
+        const known = knownVersionedMetadata(state)
+        if (known) return known
+        throw new Error("Migrated metadata pointer missing")
+      }
+      if (text !== null) state.seenV2 = true
       state.pointer = text === null ? null : parsePointer(text)
       state.checkedAt = Date.now()
     }
     if (state.pointer === null) {
-      // Only a confirmed absent pointer permits legacy R2. Never combine old KV keys.
+      // A durable marker also protects cold isolates after the pointer disappears.
+      if (await r2Text(env, MIGRATED_KEY) !== null) {
+        state.seenV2 = true
+        state.pointer = undefined // Do not retain a cached absence after migration.
+        throw new Error("Migrated metadata pointer missing")
+      }
       const text = await r2Text(env, METADATA_R2_KEY)
       if (text === null) throw new Error("Missing legacy metadata")
       const snapshot = JSON.parse(text)
@@ -91,6 +118,7 @@ async function loadMetadata(env: Env, state: State): Promise<Metadata> {
       const snapshot = await readSnapshot(env, pointer.current)
       const result: Metadata = { ...snapshot, state: "current", validatedAt: new Date(state.checkedAt).toISOString(), previous: pointer.previous }
       state.last = result
+      state.lastReference = pointer.current
       return result
     } catch (error) {
       console.error("Metadata current snapshot failed", { generation: pointer.current.generation, error })
@@ -98,14 +126,12 @@ async function loadMetadata(env: Env, state: State): Promise<Metadata> {
       const snapshot = await readSnapshot(env, pointer.previous)
       const result: Metadata = { ...snapshot, state: "previous", validatedAt: null, previous: null }
       state.last = result
+      state.lastReference = pointer.previous
       console.warn("Metadata fallback", { generation: snapshot.generation, state: "previous" })
       return result
     }
   } catch (error) {
     console.error("Metadata unavailable", { error })
-    if (state.last) {
-      return { ...state.last, state: state.last.state === "legacy" ? "legacy" : "previous", validatedAt: null }
-    }
     throwHttpError("SERVICE_UNAVAILABLE", "Metadata unavailable")
   }
 }

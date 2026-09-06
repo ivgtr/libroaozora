@@ -128,10 +128,13 @@ export async function getVersionedContent(env: Env, work: Work, metadata: Metada
   // Share version acquisition, then construct delivery from each caller's own snapshot.
   let found: Found
   try {
-    found = await within(() => shareContent(env, JSON.stringify([work.id, revision]), () => currentContent(env, work, revision, deadline)), deadline - Date.now())
+    found = await within(async () => await shareContent(env, JSON.stringify([work.id, revision]), () => currentContent(env, work, revision, deadline)), deadline - Date.now())
   } catch (error) {
     if (!(error instanceof SourceError) || error.kind !== "temporary") throw error
-    const old = await within(() => staleContent(env, work, metadata), deadline - Date.now()).catch(() => undefined)
+    // Candidate sets depend on the caller's previous reference, not just the current work.
+    // Use the same limiter as current acquisition, with a separate shared promise.
+    const staleKey = JSON.stringify(["stale", work.id, revision, metadata.previous?.generation ?? null, metadata.previous?.digest ?? null])
+    const old = await within(async () => await shareContent(env, staleKey, () => staleContent(env, work, metadata)), deadline - Date.now()).catch(() => undefined)
     if (!old) throw error
     found = old
   }

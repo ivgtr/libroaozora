@@ -78,3 +78,17 @@ GitHub認証とrepository secrets/variables・Production deployment履歴を読�
 ## PR作成
 
 ユーザーの追加指示に基づき、先行API・先読み画面・世代API・中継・再検証画面を5本のドラフトPRへ分割してcommit/pushした。上記の「commit/push未実施」は実装終了時点の記録。PRと依存・追加した公開制御・確認結果は [PR一覧](./official-origin-prs.md) を参照。本番操作は引き続き未実施。
+
+## PR #8のレビュー指摘3件を修正
+
+対象head bed82d1、比較元codex/official-origin-fetch（PR #7）。先行PRの範囲とWrangler更新は変更せず、世代管理PRに追補した。
+
+- ポインタ消失: v2観測後はlegacyへ戻さず参照範囲内の既知v2を未検証として保持。cold isolateはmetadata/migrated.jsonで移行済みを判定し503。writerはマーカーをcurrentより先に保存・読戻し、マーカー存在時の再初期化も拒否する。初回pointer失敗後もマーカーを残す。
+- 復旧範囲: pointer通信失敗とsnapshot失敗のcatchを分離。正常に取得したpointerのcurrent/previousが利用できなければ503。保持snapshotもgenerationとdigestで照合し、G3/G2参照取得後にG1へ戻らない。
+- 旧本文の負荷: stale候補の取得・実ZIP展開・hashもshareContentの同じ上限に入れる。作品・現sourceRevision・previous generation/digestで共有し、deliveryは各呼出元から構築する。同じ作品16要求で旧R2読取り1回、異なる候補16要求は最大2並列（残りは再試行可能な失敗）をworkerdで確認。
+
+回帰試験ではwarmの提供停止確認→current削除後403を維持し、readerをリセットしたcold状態で503となり公式fetchが増えないことも本文routeで確認した。current/マーカーとも不存在の初回legacy互換、指定previousに一致する保持データの利用、digest不一致の拒否、異なるprevious本文の非混在も確認した。
+
+今回再実行: pnpm -r testはcore61/Workers131/Node8の計200件成功。pnpm -r --parallel lint、Workers lint:test、pnpm build（core/Web production build/Workers dry-run）成功。新しい16要求試験で上限拒否Promiseの未処理rejectionを検出し、withinへ渡すコールバック内でshareContentを即awaitして解消、最終全体実行で未処理エラー0。buildにはmiddleware→proxy命名移行の警告があり、導入時期の比較は行っていない。
+
+ログは/tmp/official-origin-pr8-fixes。外部の公式fetchを制御した試験であり、R2/KVとZIP decodeはworkerdの実処理を使用した。CPU/isolateピークメモリ、本番環境の確認・操作は実施していない。旧cd-candidate.tar.gzには修正が入っていないので、C Workerは修正後PR headを公開候補とする。

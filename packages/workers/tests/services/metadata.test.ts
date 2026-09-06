@@ -2,13 +2,14 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest"
 import { env } from "cloudflare:workers"
 import { sha256 } from "@libroaozora/core"
 import { getMetadata, getWorks, getPersons, resetMetadataForTesting } from "../../src/services/metadata"
-import { CURRENT_KEY, snapshotKey, metadataKey } from "../../src/services/metadata-model"
+import { CURRENT_KEY, MIGRATED_KEY, MIGRATED_VALUE, snapshotKey, metadataKey } from "../../src/services/metadata-model"
 import { METADATA_R2_KEY, META_WORKS_KEY } from "../../src/lib/constants"
 import { SEED_WORKS, SEED_PERSONS, SEED_METADATA_JSON } from "../fixtures/seed"
 
 beforeEach(async () => {
   resetMetadataForTesting()
   await env.R2.delete(CURRENT_KEY)
+  await env.R2.delete(MIGRATED_KEY)
   await env.R2.delete(METADATA_R2_KEY)
   for (const id of ["current", "previous"]) { await env.KV.delete(metadataKey(id)); await env.R2.delete(snapshotKey(id)) }
 })
@@ -82,4 +83,65 @@ it("KV exceptions do not prevent loading metadata and R2 body failures never del
   const del = vi.spyOn(env.R2, "delete")
   await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
   expect(del).not.toHaveBeenCalled()
+})
+
+it("never reopens legacy permission after observing a withdrawn v2 work", async () => {
+  const stopped = SEED_WORKS.map(work => ({ ...work, copyrightFlag: true }))
+  const current = await snapshot("current", stopped)
+  await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current, previous: null }))
+  expect((await getMetadata(env)).works[0].copyrightFlag).toBe(true)
+  await env.R2.delete(CURRENT_KEY)
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(Date.now() + 60_001)
+  const get = vi.spyOn(env.R2, "get")
+  expect(await getMetadata(env)).toMatchObject({ generation: "current", state: "previous", validatedAt: null, works: stopped })
+  expect(get.mock.calls.some(([key]) => key === METADATA_R2_KEY)).toBe(false)
+})
+it.each(["cold", "previously-legacy"])("blocks legacy after durable migration in a %s isolate", async mode => {
+  await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
+  if (mode === "previously-legacy") expect((await getMetadata(env)).state).toBe("legacy")
+  await env.R2.put(MIGRATED_KEY, MIGRATED_VALUE)
+  const get = vi.spyOn(env.R2, "get")
+  await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
+  expect(get.mock.calls.some(([key]) => key === METADATA_R2_KEY)).toBe(false)
+})
+it("fails closed when the migration marker cannot be checked", async () => {
+  await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
+  const get = env.R2.get.bind(env.R2)
+  vi.spyOn(env.R2, "get").mockImplementation((key, options) => {
+    if (key === MIGRATED_KEY) return Promise.reject(new Error("marker unavailable"))
+    return get(key, options)
+  })
+  await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
+})
+it("does not return G1 outside a successfully read G3/G2 pointer, even on later transport failure", async () => {
+  const g1 = await snapshot("g1")
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current: g1, previous: null }))
+  expect((await getMetadata(env)).generation).toBe("g1")
+  const g2 = await snapshot("g2", [])
+  const g3 = await snapshot("g3", [])
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current: g3, previous: g2 }))
+  await env.R2.delete([snapshotKey("g2"), snapshotKey("g3")])
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(Date.now() + 60_001)
+  await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
+  await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
+  vi.setSystemTime(Date.now() + 60_001)
+  vi.spyOn(env.R2, "get").mockRejectedValue(new Error("pointer transport"))
+  await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
+})
+it("allows a retained snapshot only when its generation and digest match an explicit reference", async () => {
+  const g1 = await snapshot("g1")
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current: g1, previous: null }))
+  await getMetadata(env)
+  await env.R2.delete(snapshotKey("g1"))
+  const missing = { generation: "missing", digest: "0".repeat(64) }
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current: missing, previous: g1 }))
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(Date.now() + 60_001)
+  expect(await getMetadata(env)).toMatchObject({ generation: "g1", state: "previous" })
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current: missing, previous: { ...g1, digest: "1".repeat(64) } }))
+  vi.setSystemTime(Date.now() + 60_001)
+  await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
 })

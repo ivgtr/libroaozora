@@ -162,3 +162,5 @@ T009/T017/T023はStep 2以降のリリース作業。コードの検証までを
 チェック済みはローカル変更と検証を示し、本番完了を意味しない。T016の実行枠確認を未完のまま、独立に実施可能なDのローカル作業を継続した。公開時はT009→T016受入れ→T017→T023の依存を守る。
 
 証拠は `L/docs/official-origin/step2-log.md`、`L/docs/investigations/official-origin-release.md`（A/B）、`L/docs/investigations/official-origin-cd-release.md`（C/D）、`L/docs/investigations/official-origin-browser/README.md`。GitHub認証/Production履歴は読めたがCloudflare直接認証・workflow repository secrets/variablesは未設定。未保存の過去版、同期停止、未閲覧/offline端末への即時更新は保証しない。
+
+PR #8レビュー追補: T011/T012/T013/T014/T016の移行マーカー・復旧参照制限・旧本文共有を修正し、core61/Workers131/Node8、lint/type/build成功。初回pointer失敗時の復旧と旧C/D archiveの失効をリリース資料へ追記。本番前提の未完状態は変わらない。

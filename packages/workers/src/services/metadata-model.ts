@@ -1,6 +1,8 @@
 import { sha256 } from "@libroaozora/core"
 import type { Work, Person } from "@libroaozora/core"
 export const CURRENT_KEY = "metadata/current.json"
+export const MIGRATED_KEY = "metadata/migrated.json"
+export const MIGRATED_VALUE = JSON.stringify({ schemaVersion: 1 })
 export type Snapshot = { schemaVersion: 1; generation: string; works: Work[]; persons: Person[]; syncedAt: string }
 export type Reference = { generation: string; digest: string }
 export type Pointer = { schemaVersion: 1; current: Reference; previous: Reference | null }

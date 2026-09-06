@@ -55,3 +55,11 @@ purge/新deploymentへの切替を確認できない場合、旧応答を最後�
 ## 最終ソース保存
 
 ローカルC/D候補を `/tmp/official-origin-step2/cd-candidate.tar.gz` に固定。SHA-256は `051222791978f0d3f9629f85b49025a96c34101064d1f2a4edf6d2aa0c316747`。このhashの追記直前の両repo追跡/未追跡・非ignoredソースを含む。Cでは同archiveのlibro部分とC中継単独archive、Dではdayro部分を使い、公開順序を崩さない。本番設定は含まない。
+
+## PR #8のレビュー修正を含む公開条件
+
+レビュー対象bed82d1の3件を修正し、全体検証を完了。旧cd-candidate.tar.gzはこの修正を含まないため、C Workerの公開候補として使用しない。修正後のPR #8 headを改めて検証・公開する。A/B候補とdayro候補の製品コードは変更していない。
+
+初回writerがsnapshotを保存した後、currentを公開する前にmetadata/migrated.jsonを保存・読戻す。マーカーはlifecycle削除対象にしない。本番反映の差分には、この追加オブジェクトも含める。reader先行公開時点ではcurrentとマーカーがともにない場合だけlegacyを読める。
+
+current消失時、warm readerは参照範囲内の既知v2を未検証で維持し、cold readerはマーカーを確認して503とする。writerもマーカーがある状態でlegacyから初期化しない。初回current書込み失敗でもマーカーは残るため、同期を停止し、保存済みsnapshotのdigest/権利情報を確認してpointerだけを復旧する。マーカー削除によるlegacy復帰は復旧策にしない。マーカーとcurrentの両方が失われた場合の自動判別はできない。
