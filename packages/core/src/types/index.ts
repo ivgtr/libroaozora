@@ -11,6 +11,9 @@ export type ErrorCode =
   | "INTERNAL_ERROR"
   | "NOT_SUPPORTED"
   | "SERVICE_UNAVAILABLE"
+  | "SOURCE_UNAVAILABLE"
+  | "SOURCE_TEMPORARY_ERROR"
+  | "SOURCE_INVALID_CONTENT"
 
 // --- Entity Types ---
 
@@ -45,6 +48,7 @@ export type Work = {
   updatedAt: string
   copyrightFlag: boolean
   orthography?: string
+  textSource?: { updatedAt: string | null; revisionCount: number | null }
   sourceUrls: SourceUrls
 }
 
@@ -81,7 +85,20 @@ export type StructuredContent = {
   blocks: ContentBlock[]
 }
 
+export type Delivery = {
+  metadataGeneration: string
+  metadataSyncedAt: string | null
+  metadataState: "current" | "previous" | "legacy"
+  sourceRevision: string | null
+  expectedSourceRevision: string | null
+  contentId: string
+  verification: "current" | "stale" | "unverified"
+  validatedAt: string | null
+}
+
 export type WorkContent = {
+  work?: Work
+  delivery?: Delivery
   workId: string
   format: ContentFormat
   content: string | StructuredContent

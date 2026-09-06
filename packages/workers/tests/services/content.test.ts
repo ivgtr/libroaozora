@@ -1,3 +1,4 @@
+import { resetContentControlForTesting } from "../../src/services/content-control"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 import { env } from "cloudflare:workers"
 
@@ -7,31 +8,16 @@ vi.mock("@libroaozora/core", () => ({
 }))
 
 import { decompress } from "@libroaozora/core"
-import { getContent, resolveContentUrl } from "../../src/services/content"
-
-describe("resolveContentUrl", () => {
-  it("aozora.gr.jp URL を GitHub raw URL に変換する", () => {
-    const result = resolveContentUrl(
-      "https://www.aozora.gr.jp/cards/000148/files/789_ruby_5639.zip",
-    )
-    expect(result).toBe(
-      "https://raw.githubusercontent.com/aozorabunko/aozorabunko/master/cards/000148/files/789_ruby_5639.zip",
-    )
-  })
-
-  it("aozora.gr.jp 以外の URL はそのまま返す", () => {
-    const url = "https://example.com/file.zip"
-    expect(resolveContentUrl(url)).toBe(url)
-  })
-})
+import { getContent } from "../../src/services/content"
 
 describe("getContent", () => {
   const SOURCE_URL = "https://www.aozora.gr.jp/cards/000001/files/001000_ruby.zip"
   const R2_KEY = "cards/000001/files/001000_ruby.zip"
   const EXPECTED_FETCH_URL =
-    "https://raw.githubusercontent.com/aozorabunko/aozorabunko/master/cards/000001/files/001000_ruby.zip"
+    "https://www.aozora.gr.jp/cards/000001/files/001000_ruby.zip"
 
   beforeEach(async () => {
+  resetContentControlForTesting()
     vi.clearAllMocks()
     await env.KV.delete("content:001000")
     await env.R2.delete(R2_KEY)
@@ -60,7 +46,7 @@ describe("getContent", () => {
     expect(cached).toBe("デコードされた本文")
   })
 
-  it("KV + R2 ミス → GitHub fetch → R2 書き込み → KV キャッシュ、cacheHit: false", async () => {
+  it("KV + R2 ミス → 公式 fetch → R2 書き込み → KV キャッシュ、cacheHit: false", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(new ArrayBuffer(8)),
     )
@@ -80,7 +66,7 @@ describe("getContent", () => {
     expect(cached).toBe("デコードされた本文")
   })
 
-  it("R2 データ破損 → R2 削除 → GitHub フォールバック", async () => {
+  it("R2 データ破損 → 正常取得で修復 → 公式 フォールバック", async () => {
     await env.R2.put(R2_KEY, new Uint8Array([0xff, 0xff]))
 
     vi.mocked(decompress).mockImplementationOnce(() => {

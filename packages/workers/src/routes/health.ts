@@ -11,10 +11,13 @@ function isServiceUnavailable(e: unknown): boolean {
 
 health.get("/health", async (c) => {
   try {
-    const { works, persons, syncedAt } = await getMetadata(c.env)
+    const { works, persons, syncedAt, generation, state } = await getMetadata(c.env, c.executionCtx)
 
     return c.json({
       status: "ok",
+      metadataGeneration: generation,
+      metadataState: state,
+      syncAgeSeconds: syncedAt ? Math.max(0, (Date.now() - Date.parse(syncedAt)) / 1000) : null,
       mode: "workers",
       lastSyncedAt: syncedAt,
       worksCount: works.length,
@@ -32,11 +35,13 @@ health.get("/health", async (c) => {
 })
 
 health.get("/stats", async (c) => {
-  const { works, persons, syncedAt } = await getMetadata(c.env)
+  const { works, persons, syncedAt, generation, state } = await getMetadata(c.env, c.executionCtx)
 
   const publicDomainWorks = works.filter((w) => !w.copyrightFlag).length
 
   return c.json({
+    metadataGeneration: generation,
+    metadataState: state,
     totalWorks: works.length,
     publicDomainWorks,
     totalPersons: persons.length,

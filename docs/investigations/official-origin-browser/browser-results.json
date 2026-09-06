@@ -1,0 +1,14 @@
+{
+  "browser": "151.0.7922.34",
+  "results": [
+    "An upstream revision does not replace the displayed text",
+    "Temporary origin failure returns the identified previous version without advancing checkedAt or resetting its position",
+    "Reopening adopts the corrected text and resets only the current reading position",
+    "Bookshelf reopening preserves favorites and completion history while resetting the incompatible position",
+    "Real offline mode can reopen saved legacy v2 text and preserve its unidentified old position",
+    "The first identified online version migrates v2 to v3 and resets an unknown legacy position",
+    "Confirmed withdrawal invalidates local text and prevents subsequent offline resurrection"
+  ],
+  "contentRequests": 5,
+  "pageErrors": []
+}

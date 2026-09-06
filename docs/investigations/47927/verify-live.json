@@ -1,0 +1,47 @@
+{
+  "time": "2026-09-05T19:07:39.034Z",
+  "storage": "isolated memory; control 789 uses production API",
+  "requests": [
+    {
+      "url": "https://raw.githubusercontent.com/aozorabunko/aozorabunko/master/cards/001030/files/47927_txt_51147.zip",
+      "status": 404,
+      "cache": null
+    },
+    {
+      "url": "https://www.aozora.gr.jp/cards/001030/files/47927_txt_51147.zip",
+      "status": 200,
+      "cache": null
+    },
+    {
+      "url": "https://lb-api.ivgtr.me/v1/works/047927",
+      "status": 200,
+      "cache": null
+    },
+    {
+      "url": "https://lb-api.ivgtr.me/v1/works/000789",
+      "status": 200,
+      "cache": null
+    },
+    {
+      "url": "https://lb-api.ivgtr.me/v1/works/000789/content?format=raw",
+      "status": 200,
+      "cache": "HIT"
+    }
+  ],
+  "results": [
+    {
+      "workId": 47927,
+      "title": "春浅き日に",
+      "author": "堀 辰雄",
+      "charCount": 1909,
+      "blocks": 9
+    },
+    {
+      "workId": 789,
+      "title": "吾輩は猫である",
+      "author": "夏目 漱石",
+      "charCount": 321177,
+      "blocks": 2316
+    }
+  ]
+}

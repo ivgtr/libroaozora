@@ -1,3 +1,4 @@
+import { sourceDate, sourceCount } from "./revision.js"
 import { csvParse } from "./lib/csv-parse.js"
 import type {
   ParseResult,
@@ -81,6 +82,7 @@ export function parseCSV(csv: string): ParseResult {
           copyrightFlag: parseCopyrightFlag(row["作品著作権フラグ"]),
           publishedAt: row["公開日"]?.trim() ?? "",
           updatedAt: row["最終更新日"]?.trim() ?? "",
+          textSource: { updatedAt: sourceDate(row["テキストファイル最終更新日"]), revisionCount: sourceCount(row["テキストファイル修正回数"]) },
           sourceUrls: buildSourceUrls(row as Record<string, string>),
         },
         authors: [],

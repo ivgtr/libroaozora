@@ -148,7 +148,8 @@ export const SEED_METADATA_JSON = JSON.stringify({ works: SEED_WORKS, persons: S
 
 export { METADATA_R2_KEY, META_WORKS_KEY, META_PERSONS_KEY, META_SYNCED_AT_KEY }
 
-export async function seedKV(kv: KVNamespace): Promise<void> {
+export async function seedKV(kv: KVNamespace, r2?: R2Bucket): Promise<void> {
+  if (r2) await r2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
   await kv.put(META_WORKS_KEY, JSON.stringify(SEED_WORKS))
   await kv.put(META_PERSONS_KEY, JSON.stringify(SEED_PERSONS))
   await kv.put(META_SYNCED_AT_KEY, SEED_SYNCED_AT)
@@ -157,4 +158,11 @@ export async function seedKV(kv: KVNamespace): Promise<void> {
 export async function seedR2(r2: R2Bucket): Promise<void> {
   await r2.put("cards/000001/files/001000_ruby.zip", SEED_CONTENT_ZIP)
   await r2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
+}
+
+export async function seedContent(kv: KVNamespace, work = W1, text = "テスト本文テキスト") {
+  const { sourceRevision, sha256, contentIdentifier, DECODE_VERSION } = await import("@libroaozora/core")
+  const revision = await sourceRevision(work)
+  const textHash = await sha256(text)
+  await kv.put(`content:v2:${work.id}:${revision}`, JSON.stringify({ schemaVersion: 2, workId: work.id, sourceRevision: revision, sourceUrl: work.sourceUrls.text, fetchedAt: SEED_SYNCED_AT, zipHash: "0".repeat(64), textHash, decodeVersion: DECODE_VERSION, contentId: contentIdentifier(textHash), text }))
 }
