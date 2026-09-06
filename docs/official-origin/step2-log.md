@@ -74,3 +74,7 @@ GitHub認証とrepository secrets/variables・Production deployment履歴を読�
 [A/Bリリース](../investigations/official-origin-release.md) と [C/Dリリース・CDN切替・復旧](../investigations/official-origin-cd-release.md) に対象候補、差分、検証、復旧手順と未確定欄を集約した。T009/T016の実行枠、T017/T023の本番公開は未完。対象account/binding・現在SHA・契約枠を確定してから、本番設定/同期/デプロイ/purgeの具体的操作について承認を求める。本文全件取得、一括削除、デプロイ、remote同期は実施していない。
 
 最終保持確認: 開始時に記録したpackage/lock・実fixture・47927調査ファイルはlibro7/7、dayro3/3でSHA-256一致。Workers package.jsonのdependencies/devDependenciesもA/B固定候補と一致（test script拡張だけは今回の変更）。保持結果は `/tmp/official-origin-step2/preservation.json`。両repoの `git diff --check` と資料内の相対リンク確認は成功。今回生成した非追跡tsbuildinfoを除去し、ローカル検証サーバーを終了した。commit/pushは未実施。
+
+## PR作成
+
+ユーザーの追加指示に基づき、先行API・先読み画面・世代API・中継・再検証画面を5本のドラフトPRへ分割してcommit/pushした。上記の「commit/push未実施」は実装終了時点の記録。PRと依存・追加した公開制御・確認結果は [PR一覧](./official-origin-prs.md) を参照。本番操作は引き続き未実施。

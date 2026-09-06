@@ -17,3 +17,5 @@
 2026-09-06のStep 1で調査・設計・タスク化を完了。Step 2ではA/B先行候補を固定後、C/Dまでローカル実装・検証を実施しました。本番操作は未実施です。
 
 実装判断と検証は [Step 2記録](./step2-log.md)、公開順序と未完の本番前提は [C/Dリリース資料](../investigations/official-origin-cd-release.md) を参照。正本を維持しつつ、Git管理用の資料コピーをlibroaozora/docs/official-originへ配置しています。
+
+- [Step 2 PR一覧](./official-origin-prs.md): 作成済みドラフトPR、レビュー順序、公開待ち事項。
