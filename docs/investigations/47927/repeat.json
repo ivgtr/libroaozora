@@ -1,0 +1,44 @@
+[
+  {
+    "name": "metadata-2",
+    "url": "https://lb-api.ivgtr.me/v1/works/047927",
+    "time": "2026-09-05T19:03:36.127613+00:00",
+    "result": "200 0.788571",
+    "error": ""
+  },
+  {
+    "name": "content-2",
+    "url": "https://lb-api.ivgtr.me/v1/works/047927/content?format=raw",
+    "time": "2026-09-05T19:03:36.128126+00:00",
+    "result": "500 1.186130",
+    "error": ""
+  },
+  {
+    "name": "production-2",
+    "url": "https://dayroaozora.vercel.app/api/works/47927",
+    "time": "2026-09-05T19:03:36.128499+00:00",
+    "result": "502 1.582449",
+    "error": ""
+  },
+  {
+    "name": "control-metadata",
+    "url": "https://lb-api.ivgtr.me/v1/works/000789",
+    "time": "2026-09-05T19:03:36.128847+00:00",
+    "result": "200 0.944224",
+    "error": ""
+  },
+  {
+    "name": "control-content",
+    "url": "https://lb-api.ivgtr.me/v1/works/000789/content?format=raw",
+    "time": "2026-09-05T19:03:36.131181+00:00",
+    "result": "200 2.561251",
+    "error": ""
+  },
+  {
+    "name": "control-production",
+    "url": "https://dayroaozora.vercel.app/api/works/789",
+    "time": "2026-09-05T19:03:36.131766+00:00",
+    "result": "200 3.239051",
+    "error": ""
+  }
+]

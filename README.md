@@ -36,6 +36,8 @@ Base: `/v1`
 
 ## セットアップ
 
+Node.js 22以上、pnpm 10.33.0を使用してください（Wranglerの実行要件）。
+
 ```bash
 pnpm install
 pnpm build
@@ -101,3 +103,9 @@ KV_NAMESPACE_ID=<your-kv-namespace-id> pnpm --filter @libroaozora/workers run sy
 ## ライセンス
 
 MIT
+
+## 公式取得への移行
+
+本文とメタデータCSVは青空文庫の配布URLから直接取得します。本文はAPIアクセス時にKV→R2→配布元の順に取得し、保存だけの障害では正常本文を返します。本文TTLは30日、R2 ZIPは期限なしです。
+
+A/Bの設定・検証・本番反映の前提は [リリース記録](docs/investigations/official-origin-release.md)、[上限の測定](docs/investigations/official-origin-limits.md) を参照してください。更新版への対応とブラウザ再検証は続くC/D段階です。

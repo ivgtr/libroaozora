@@ -39,6 +39,7 @@ export function onErrorHandler(err: Error, c: Context): Response {
   if (err instanceof HTTPException) {
     return err.getResponse()
   }
+  console.error("Unhandled API error", { path: c.req.path, error: err })
   const body = createErrorResponse("INTERNAL_ERROR", "Internal server error")
   return c.json(body, 500)
 }

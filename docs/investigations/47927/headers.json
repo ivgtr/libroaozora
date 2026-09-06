@@ -1,0 +1,74 @@
+{
+  "local": [
+    "HTTP/1.1 502 Bad Gateway",
+    "content-type: application/json",
+    "Date: Sat, 05 Sep 2026 19:04:55 GMT"
+  ],
+  "control-metadata": [
+    "HTTP/2 200 ",
+    "date: Sat, 05 Sep 2026 19:03:39 GMT",
+    "content-type: application/json",
+    "content-length: 576"
+  ],
+  "control-content": [
+    "HTTP/2 200 ",
+    "date: Sat, 05 Sep 2026 19:03:40 GMT",
+    "content-type: application/json",
+    "content-length: 1125566",
+    "x-cache-status: HIT"
+  ],
+  "production-2": [
+    "HTTP/2 502 ",
+    "age: 0",
+    "cache-control: public, max-age=0, must-revalidate",
+    "content-type: application/json",
+    "date: Sat, 05 Sep 2026 19:03:39 GMT",
+    "x-vercel-cache: MISS"
+  ],
+  "content-2": [
+    "HTTP/2 500 ",
+    "date: Sat, 05 Sep 2026 19:03:39 GMT",
+    "content-type: application/json",
+    "content-length: 69"
+  ],
+  "metadata-2": [
+    "HTTP/2 200 ",
+    "date: Sat, 05 Sep 2026 19:03:38 GMT",
+    "content-type: application/json",
+    "content-length: 558"
+  ],
+  "control-production": [
+    "HTTP/2 200 ",
+    "age: 0",
+    "cache-control: public, max-age=0, must-revalidate",
+    "content-type: application/json",
+    "date: Sat, 05 Sep 2026 19:03:40 GMT",
+    "x-vercel-cache: MISS"
+  ],
+  "zip": [
+    "HTTP/2 404 ",
+    "content-type: text/plain; charset=utf-8",
+    "date: Sat, 05 Sep 2026 19:02:30 GMT",
+    "content-length: 14"
+  ],
+  "production": [
+    "HTTP/2 502 ",
+    "age: 0",
+    "cache-control: public, max-age=0, must-revalidate",
+    "content-type: application/json",
+    "date: Sat, 05 Sep 2026 19:02:13 GMT",
+    "x-vercel-cache: MISS"
+  ],
+  "metadata": [
+    "HTTP/2 200 ",
+    "date: Sat, 05 Sep 2026 19:02:12 GMT",
+    "content-type: application/json",
+    "content-length: 558"
+  ],
+  "content": [
+    "HTTP/2 500 ",
+    "date: Sat, 05 Sep 2026 19:02:12 GMT",
+    "content-type: application/json",
+    "content-length: 69"
+  ]
+}

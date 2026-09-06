@@ -69,7 +69,7 @@ describe("getMetadata", () => {
     expect(r2Object).not.toBeNull()
   })
 
-  it("R2 JSON 破損 → R2 削除 → 503 SERVICE_UNAVAILABLE", async () => {
+  it("R2 JSON 破損 → R2 保持 → 503 SERVICE_UNAVAILABLE", async () => {
     await env.R2.put(METADATA_R2_KEY, "invalid json{{{")
 
     const res = await exports.default.fetch("http://localhost/v1/works")
@@ -78,7 +78,7 @@ describe("getMetadata", () => {
     expect(body.error.code).toBe("SERVICE_UNAVAILABLE")
 
     const r2Object = await env.R2.get(METADATA_R2_KEY)
-    expect(r2Object).toBeNull()
+    expect(r2Object).not.toBeNull()
   })
 
   it("KV + R2 ミス → 503 SERVICE_UNAVAILABLE", async () => {

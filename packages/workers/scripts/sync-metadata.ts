@@ -1,3 +1,5 @@
+import { pathToFileURL } from "node:url"
+import { downloadMetadata } from "./download-metadata"
 import { execFileSync } from "node:child_process"
 import { writeFileSync, unlinkSync } from "node:fs"
 import { join } from "node:path"
@@ -10,9 +12,6 @@ import {
   META_SYNCED_AT_KEY,
   METADATA_TTL,
 } from "../src/lib/constants"
-
-const CSV_URL =
-  "https://raw.githubusercontent.com/aozorabunko/aozorabunko/master/index_pages/list_person_all_extended_utf8.zip"
 
 const R2_BUCKET = "libroaozora-data"
 
@@ -47,11 +46,7 @@ async function main(): Promise<void> {
   const namespaceId = getNamespaceId()
 
   console.log("Downloading CSV zip...")
-  const response = await fetch(CSV_URL)
-  if (!response.ok) {
-    throw new Error(`CSV fetch failed: ${response.status}`)
-  }
-  const zipData = new Uint8Array(await response.arrayBuffer())
+  const zipData = await downloadMetadata()
   console.log(`Downloaded ${zipData.byteLength} bytes`)
 
   console.log("Parsing CSV...")
@@ -75,7 +70,7 @@ async function main(): Promise<void> {
   console.log(`Sync complete: ${works.length} works, ${persons.length} persons`)
 }
 
-main().catch((err) => {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch((err) => {
   console.error("Sync failed:", err)
   process.exit(1)
 })

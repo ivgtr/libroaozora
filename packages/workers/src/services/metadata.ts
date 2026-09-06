@@ -1,5 +1,6 @@
 import type { Work, Person } from "@libroaozora/core"
 import type { Env } from "../env"
+import { within } from "./content-limits"
 import { throwHttpError } from "../errors"
 import {
   METADATA_R2_KEY,
@@ -29,34 +30,61 @@ function parseMetadataJson(text: string): MetadataSnapshot {
   return data as unknown as MetadataSnapshot
 }
 
+const pendingMetadata = new WeakMap<Env, Promise<Metadata>>()
 export async function getMetadata(env: Env): Promise<Metadata> {
-  const [cachedWorks, cachedPersons, cachedSyncedAt] = await Promise.all([
-    env.KV.get<Work[]>(META_WORKS_KEY, "json"),
-    env.KV.get<Person[]>(META_PERSONS_KEY, "json"),
-    env.KV.get(META_SYNCED_AT_KEY),
-  ])
-  if (cachedWorks !== null && cachedPersons !== null) {
-    return { works: cachedWorks, persons: cachedPersons, syncedAt: cachedSyncedAt }
+  const pending = pendingMetadata.get(env)
+  if (pending) return pending
+  const task = loadMetadata(env)
+  pendingMetadata.set(env, task)
+  try { return await task } finally { pendingMetadata.delete(env) }
+}
+
+async function loadMetadata(env: Env): Promise<Metadata> {
+  try {
+    const [cachedWorks, cachedPersons, cachedSyncedAt] = await within(() => Promise.all([
+      env.KV.get<Work[]>(META_WORKS_KEY, "json"),
+      env.KV.get<Person[]>(META_PERSONS_KEY, "json"),
+      env.KV.get(META_SYNCED_AT_KEY),
+    ]), 1500)
+    if (Array.isArray(cachedWorks) && Array.isArray(cachedPersons)) {
+      return { works: cachedWorks, persons: cachedPersons, syncedAt: cachedSyncedAt }
+    }
+  } catch (error) {
+    console.error("Metadata operation failed", { stage: "kv-read", error })
   }
 
-  const r2Object = await env.R2.get(METADATA_R2_KEY)
+  let r2Object
+  try {
+    r2Object = await within(() => env.R2.get(METADATA_R2_KEY), 1500)
+  } catch (error) {
+    console.error("Metadata operation failed", { stage: "r2-read", error })
+    throwHttpError("SERVICE_UNAVAILABLE", "Metadata unavailable")
+  }
   if (r2Object !== null) {
+    let text: string
+    try {
+      text = await within(() => r2Object!.text(), 1500)
+    } catch (error) {
+      console.error("Metadata operation failed", { stage: "r2-body", error })
+      throwHttpError("SERVICE_UNAVAILABLE", "Metadata unavailable")
+    }
     let snapshot: MetadataSnapshot
     try {
-      snapshot = parseMetadataJson(await r2Object.text())
+      snapshot = parseMetadataJson(text)
     } catch (e) {
-      console.error("R2 metadata corrupted, deleting:", e)
-      try { await env.R2.delete(METADATA_R2_KEY) } catch {}
+      console.error("Metadata operation failed", { stage: "json-parse", error: e })
       throwHttpError("SERVICE_UNAVAILABLE", "Metadata not synced")
     }
 
     try {
-      await Promise.all([
+      await within(() => Promise.all([
         env.KV.put(META_WORKS_KEY, JSON.stringify(snapshot.works), { expirationTtl: METADATA_TTL }),
         env.KV.put(META_PERSONS_KEY, JSON.stringify(snapshot.persons), { expirationTtl: METADATA_TTL }),
         env.KV.put(META_SYNCED_AT_KEY, snapshot.syncedAt),
-      ])
-    } catch {}
+      ]), 500)
+    } catch (error) {
+      console.error("Metadata operation failed", { stage: "kv-write", error })
+    }
 
     return snapshot
   }

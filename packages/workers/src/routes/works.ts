@@ -5,6 +5,7 @@ import { parsePagination } from "../lib/pagination"
 import { getWorks } from "../services/metadata"
 import { filterWorks, sortWorks, paginate } from "../services/filter"
 import type { FilterParams } from "../services/filter"
+import { within } from "../services/content-limits"
 import { getContent } from "../services/content"
 import { formatContent } from "@libroaozora/core"
 import type { ContentFormat } from "@libroaozora/core"
@@ -110,7 +111,7 @@ works.get("/works/:id/content", async (c) => {
     throwHttpError("BAD_REQUEST", `Invalid format: ${format}`)
   }
 
-  const allWorks = await getWorks(c.env)
+  const allWorks = await within(() => getWorks(c.env), 5000)
   const work = allWorks.find((w) => w.id === id)
 
   if (!work) {
