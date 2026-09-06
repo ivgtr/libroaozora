@@ -1,3 +1,4 @@
+import { createExecutionContext } from "cloudflare:test"
 import { resetContentControlForTesting } from "../../src/services/content-control"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { env } from "cloudflare:workers"
@@ -25,7 +26,7 @@ describe("047927 official origin with real ZIP decoding", () => {
     await env.KV.put(META_WORKS_KEY, JSON.stringify([fixture.metadata]))
     await env.KV.put(META_PERSONS_KEY, "[]")
 
-    const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
+    const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env, createExecutionContext())
     expect(res.status).toBe(200)
     expect(res.headers.get("X-Cache-Status")).toBe("MISS")
     expect(await res.json()).toEqual({ workId: "047927", format: "raw", content: fixture.text })
@@ -51,7 +52,7 @@ describe("047927 official origin with real ZIP decoding", () => {
       .mockResolvedValueOnce(new Response(null, { status: 503 }))
     await env.KV.put(META_WORKS_KEY, JSON.stringify([fixture.metadata]))
     await env.KV.put(META_PERSONS_KEY, "[]")
-    const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
+    const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env, createExecutionContext())
     expect(res.status).toBe(500)
     expect(await res.json()).toEqual({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } })
     expect(error).toHaveBeenCalledWith("Content operation failed", {
@@ -107,12 +108,12 @@ it("decodes the real 789 official ZIP through raw/plain routes", async () => {
   await env.KV.put(META_PERSONS_KEY, "[]")
   const bytes = Uint8Array.from(atob(control.zipBase64), c => c.charCodeAt(0))
   const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(bytes))
-  const raw = await app.fetch(new Request("https://test/v1/works/000789/content?format=raw"), env)
+  const raw = await app.fetch(new Request("https://test/v1/works/000789/content?format=raw"), env, createExecutionContext())
   expect(raw.status).toBe(200)
   const body = await raw.json() as { content: string }
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body.content))
   expect(Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, "0")).join("")).toBe(control.textSha256)
-  const plain = await app.fetch(new Request("https://test/v1/works/000789/content?format=plain"), env)
+  const plain = await app.fetch(new Request("https://test/v1/works/000789/content?format=plain"), env, createExecutionContext())
   expect(plain.status).toBe(200)
   expect(plain.headers.get("X-Cache-Status")).toBe("HIT")
   expect(fetchMock).toHaveBeenCalledOnce()

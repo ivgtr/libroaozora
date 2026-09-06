@@ -11,7 +11,8 @@
     "lint:test": "tsc --noEmit -p tests/tsconfig.json",
     "build": "wrangler deploy --dry-run",
     "deploy": "wrangler deploy",
-    "sync": "tsx scripts/sync-metadata.ts"
+    "sync": "tsx scripts/sync-metadata.ts",
+    "test:lifecycle": "node scripts/test-request-lifecycle.mjs"
   },
   "dependencies": {
     "@libroaozora/core": "workspace:*",

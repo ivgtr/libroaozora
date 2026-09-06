@@ -33,3 +33,7 @@ A単独変更後Workers 82件成功。Bの障害注入追加後101件成功、�
 全metadata 17,840作品/1,335人物/11,309,473 bytesでローカルworkerd測定。cold/KV/R2/異作品同時cold、全て200。cache hit時origin fetchは0。詳細は `../investigations/official-origin-limits.md`。CPU・isolateピークメモリ未計測を経過時間で代用しない。
 
 ログ `/tmp/official-origin-step2/`。dayro buildは成功しmetadataBase未設定の警告あり。導入時期の帰属比較は実施していない。
+
+## PR #7レビュー対応: 共有タスクの寿命
+
+共有処理の作成元でcleanupを含むPromiseをwaitUntilへ登録し、期限と後続要求による回収・旧タスクの解放競合防止を追加。core59/Workers111・型/lint/dry-run、実HTTP切断18シナリオを確認した。対照実行では所有I/Oコンテキスト破棄を再現できていないため、動作確認と元不具合の再現を区別して [検証記録](../investigations/pr7-request-lifecycle.md) に残した。

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, beforeEach, vi } from "vitest"
 import { env, exports } from "cloudflare:workers"
 import type { ErrorResponse } from "@libroaozora/core"
 import {
@@ -109,4 +109,34 @@ describe("getPersons", () => {
 
     expect(persons).toEqual(SEED_PERSONS)
   })
+})
+
+it("retains metadata cleanup and reclaims an expired pending read without losing its replacement", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  const owner = { waitUntil: vi.fn() }
+  const binding = { ...env, R2: { get: async () => null } as unknown as R2Bucket }
+  let firstRelease!: (value: string | null) => void, nextRelease!: (value: string | null) => void
+  let count = 0
+  const spy = vi.fn((): Promise<string | null> => {
+    count++
+    if (count === 1) return new Promise(resolve => { firstRelease = resolve })
+    if (count === 4) return new Promise(resolve => { nextRelease = resolve })
+    return Promise.resolve(null)
+  })
+  binding.KV = { get: spy } as unknown as KVNamespace
+  const first = getMetadata(binding, owner).catch(error => error)
+  await Promise.resolve(); await Promise.resolve()
+  expect(owner.waitUntil).toHaveBeenCalledOnce()
+  vi.setSystemTime(Date.now() + 5001)
+  const second = getMetadata(binding).catch(error => error)
+  await Promise.resolve(); await Promise.resolve()
+  await first
+  firstRelease(null)
+  await Promise.resolve(); await Promise.resolve()
+  const joined = getMetadata(binding).catch(error => error)
+  expect(count).toBe(6)
+  nextRelease(null)
+  await Promise.all([second, joined])
+  spy.mockRestore()
+  vi.useRealTimers()
 })

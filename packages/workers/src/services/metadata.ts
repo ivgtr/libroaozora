@@ -1,3 +1,5 @@
+import { liveTask, retainTask, startTask } from "./shared-task"
+import type { SharedTask, TaskLifetime } from "./shared-task"
 import type { Work, Person } from "@libroaozora/core"
 import type { Env } from "../env"
 import { within } from "./content-limits"
@@ -30,13 +32,17 @@ function parseMetadataJson(text: string): MetadataSnapshot {
   return data as unknown as MetadataSnapshot
 }
 
-const pendingMetadata = new WeakMap<Env, Promise<Metadata>>()
-export async function getMetadata(env: Env): Promise<Metadata> {
-  const pending = pendingMetadata.get(env)
-  if (pending) return pending
-  const task = loadMetadata(env)
+const pendingMetadata = new WeakMap<Env, SharedTask<Metadata>>()
+export async function getMetadata(env: Env, lifetime?: TaskLifetime): Promise<Metadata> {
+  const pending = liveTask(pendingMetadata.get(env))
+  if (pending) return retainTask(pending, lifetime)
+  const task = startTask(() => loadMetadata(env), 5000, () => {
+    try { throwHttpError("SERVICE_UNAVAILABLE", "Metadata deadline exceeded") } catch (error) { return error as Error }
+  }, task => {
+    if (pendingMetadata.get(env) === task) pendingMetadata.delete(env)
+  })
   pendingMetadata.set(env, task)
-  try { return await task } finally { pendingMetadata.delete(env) }
+  return retainTask(task, lifetime)
 }
 
 async function loadMetadata(env: Env): Promise<Metadata> {
@@ -92,12 +98,12 @@ async function loadMetadata(env: Env): Promise<Metadata> {
   throwHttpError("SERVICE_UNAVAILABLE", "Metadata not synced")
 }
 
-export async function getWorks(env: Env): Promise<Work[]> {
-  const { works } = await getMetadata(env)
+export async function getWorks(env: Env, lifetime?: TaskLifetime): Promise<Work[]> {
+  const { works } = await getMetadata(env, lifetime)
   return works
 }
 
-export async function getPersons(env: Env): Promise<Person[]> {
-  const { persons } = await getMetadata(env)
+export async function getPersons(env: Env, lifetime?: TaskLifetime): Promise<Person[]> {
+  const { persons } = await getMetadata(env, lifetime)
   return persons
 }

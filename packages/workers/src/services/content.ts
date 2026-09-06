@@ -1,3 +1,4 @@
+import type { TaskLifetime } from "./shared-task"
 import { decompress, decode } from "@libroaozora/core"
 import { limits, readBounded, within } from "./content-limits"
 import type { Env } from "../env"
@@ -39,9 +40,10 @@ export async function getContent(
   workId: string,
   sourceUrl: string,
   env: Env,
+  lifetime?: TaskLifetime,
 ): Promise<{ text: string; cacheHit: boolean }> {
   const key = JSON.stringify([workId, sourceUrl])
-  return shareContent(env, key, () => loadContent(workId, sourceUrl, env, key))
+  return shareContent(env, key, () => loadContent(workId, sourceUrl, env, key), lifetime)
 }
 
 async function loadContent(workId: string, sourceUrl: string, env: Env, key: string): Promise<{ text: string; cacheHit: boolean }> {
