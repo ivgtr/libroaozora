@@ -57,7 +57,17 @@ export function positiveLimit(value: string | undefined, fallback: number): numb
   return Number.isSafeInteger(n) && n > 0 ? n : fallback
 }
 
-export async function shareContent<T = Result>(env: Env, key: string, operation: () => Promise<T>, lifetime?: TaskLifetime): Promise<T> {
+export type ContentBudget = { deadline: number; storageDeadline: number }
+
+export function contentBudget(env: Env): ContentBudget {
+  // Leave margin below Workers' post-disconnect window, and finish best-effort
+  // writes before the hard acquisition deadline can reject a valid response.
+  const duration = Math.min(positiveLimit(env.CONTENT_TIMEOUT_MS, 20_000), 25_000)
+  const deadline = Date.now() + duration
+  return { deadline, storageDeadline: deadline - Math.min(250, duration / 10) }
+}
+
+export async function shareContent<T = Result>(env: Env, key: string, operation: (budget: ContentBudget) => Promise<T>, lifetime?: TaskLifetime): Promise<T> {
   const state = stateFor(env)
   for (const task of state.active.values()) liveTask(task)
   const existing = liveTask(state.active.get(key))
@@ -65,9 +75,8 @@ export async function shareContent<T = Result>(env: Env, key: string, operation:
   if (state.active.size >= positiveLimit(env.CONTENT_MAX_CONCURRENT, 2)) {
     throw new SourceError("Content concurrency limit reached", "temporary")
   }
-  // Leave margin below Workers' 30-second post-disconnect waitUntil window.
-  const duration = Math.min(positiveLimit(env.CONTENT_TIMEOUT_MS, 20_000), 25_000)
-  const task = startTask(operation, duration, () => new SourceError("Shared content deadline exceeded", "temporary"), task => {
+  const budget = contentBudget(env)
+  const task = startTask(() => operation(budget), budget.deadline - Date.now(), () => new SourceError("Shared content deadline exceeded", "temporary"), task => {
     if (state.active.get(key) === task) state.active.delete(key)
   })
   state.active.set(key, task)
