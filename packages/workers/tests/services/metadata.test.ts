@@ -145,3 +145,38 @@ it("allows a retained snapshot only when its generation and digest match an expl
   vi.setSystemTime(Date.now() + 60_001)
   await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
 })
+
+it.each([1, 16])("refreshes cached absence within the first %s request(s) after publication", async count => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
+  expect((await getMetadata(env)).state).toBe("legacy")
+  vi.setSystemTime(Date.now() + 1_000)
+  const current = await snapshot("current", [])
+  await env.R2.put(MIGRATED_KEY, MIGRATED_VALUE)
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current, previous: null }))
+  const get = vi.spyOn(env.R2, "get")
+  const results = await Promise.all(Array.from({ length: count }, () => getMetadata(env)))
+  for (const result of results) {
+    expect(result).toMatchObject({ generation: "current", state: "current", works: [], validatedAt: new Date().toISOString() })
+  }
+  expect(get.mock.calls.filter(([key]) => key === CURRENT_KEY)).toHaveLength(1)
+  expect(get.mock.calls.filter(([key]) => key === MIGRATED_KEY)).toHaveLength(1)
+  expect(get.mock.calls.some(([key]) => key === METADATA_R2_KEY)).toBe(false)
+  expect((await getMetadata(env)).state).toBe("current")
+  expect(get.mock.calls.filter(([key]) => key === CURRENT_KEY)).toHaveLength(1)
+})
+it.each(["missing", "malformed", "transport"])("rejects a %s pointer after migration without reopening cached legacy", async failure => {
+  await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
+  expect((await getMetadata(env)).state).toBe("legacy")
+  await env.R2.put(MIGRATED_KEY, MIGRATED_VALUE)
+  if (failure === "malformed") await env.R2.put(CURRENT_KEY, "invalid")
+  const get = env.R2.get.bind(env.R2)
+  const spy = vi.spyOn(env.R2, "get").mockImplementation((key, options) => {
+    if (failure === "transport" && key === CURRENT_KEY) return Promise.reject(new Error("pointer unavailable"))
+    return get(key, options)
+  })
+  const results = await Promise.allSettled(Array.from({ length: 16 }, () => getMetadata(env)))
+  for (const result of results) expect(result).toMatchObject({ status: "rejected", reason: { status: 503 } })
+  expect(spy.mock.calls.filter(([key]) => key === CURRENT_KEY)).toHaveLength(1)
+  expect(spy.mock.calls.some(([key]) => key === METADATA_R2_KEY)).toBe(false)
+})

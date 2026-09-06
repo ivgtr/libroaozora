@@ -103,15 +103,21 @@ async function loadMetadata(env: Env, state: State): Promise<Metadata> {
       if (await r2Text(env, MIGRATED_KEY) !== null) {
         state.seenV2 = true
         state.pointer = undefined // Do not retain a cached absence after migration.
-        throw new Error("Migrated metadata pointer missing")
+        // Publication may have completed since we cached the missing pointer.
+        // Refresh once in this shared request before declaring an outage.
+        const text = await r2Text(env, CURRENT_KEY)
+        if (text === null) throw new Error("Migrated metadata pointer missing")
+        state.pointer = parsePointer(text)
+        state.checkedAt = Date.now()
+      } else {
+        const text = await r2Text(env, METADATA_R2_KEY)
+        if (text === null) throw new Error("Missing legacy metadata")
+        const snapshot = JSON.parse(text)
+        validateData(snapshot)
+        const result: Metadata = { ...snapshot, generation: `legacy-${(await sha256(text)).slice(0, 32)}`, state: "legacy", validatedAt: null, previous: null }
+        state.last = result
+        return result
       }
-      const text = await r2Text(env, METADATA_R2_KEY)
-      if (text === null) throw new Error("Missing legacy metadata")
-      const snapshot = JSON.parse(text)
-      validateData(snapshot)
-      const result: Metadata = { ...snapshot, generation: `legacy-${(await sha256(text)).slice(0, 32)}`, state: "legacy", validatedAt: null, previous: null }
-      state.last = result
-      return result
     }
     const pointer = state.pointer!
     try {

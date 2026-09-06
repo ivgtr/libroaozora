@@ -164,3 +164,5 @@ T009/T017/T023はStep 2以降のリリース作業。コードの検証までを
 証拠は `L/docs/official-origin/step2-log.md`、`L/docs/investigations/official-origin-release.md`（A/B）、`L/docs/investigations/official-origin-cd-release.md`（C/D）、`L/docs/investigations/official-origin-browser/README.md`。GitHub認証/Production履歴は読めたがCloudflare直接認証・workflow repository secrets/variablesは未設定。未保存の過去版、同期停止、未閲覧/offline端末への即時更新は保証しない。
 
 PR #8レビュー追補: T011/T012/T013/T014/T016の移行マーカー・復旧参照制限・旧本文共有を修正し、core61/Workers131/Node8、lint/type/build成功。初回pointer失敗時の復旧と旧C/D archiveの失効をリリース資料へ追記。本番前提の未完状態は変わらない。
+
+PR #8再レビュー追補: T012/T016の初回公開直後の境界を修正。不存在cacheとマーカーが食い違う要求内でcurrentを1回再取得し、1秒後の公開完了を最初の1件/16件で処理。計205 tests、lint/type/build成功。本番前提は引き続き未完。

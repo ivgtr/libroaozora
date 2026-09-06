@@ -92,3 +92,11 @@ GitHub認証とrepository secrets/variables・Production deployment履歴を読�
 今回再実行: pnpm -r testはcore61/Workers131/Node8の計200件成功。pnpm -r --parallel lint、Workers lint:test、pnpm build（core/Web production build/Workers dry-run）成功。新しい16要求試験で上限拒否Promiseの未処理rejectionを検出し、withinへ渡すコールバック内でshareContentを即awaitして解消、最終全体実行で未処理エラー0。buildにはmiddleware→proxy命名移行の警告があり、導入時期の比較は行っていない。
 
 ログは/tmp/official-origin-pr8-fixes。外部の公式fetchを制御した試験であり、R2/KVとZIP decodeはworkerdの実処理を使用した。CPU/isolateピークメモリ、本番環境の確認・操作は実施していない。旧cd-candidate.tar.gzには修正が入っていないので、C Workerは修正後PR headを公開候補とする。
+
+## PR #8再レビュー: 初回公開直後の不存在キャッシュを再確認
+
+対象head 13f409f。legacy読取りでcurrent不存在を保持した直後にwriter公開が完了すると、移行マーカーだけを読んで最初の要求群を503にしていた。マーカー観測時には同じ共有要求内でcurrentを一度再取得し、正常ならsnapshotへ進むよう修正した。再取得の欠落・破損・通信失敗時は503を維持し、legacyを再利用しない。
+
+workerd回帰テストを5件追加。legacy読取りから1秒後に正常公開した場合、最初の1件/16件がすべてcurrentを返し、R2 current再読取りは各要求群で1回。validatedAtは再確認時刻で、次の通常cache hitでは再取得しない。欠落・破損・通信失敗はそれぞれ16件すべて503、current再読取り1回、legacy再読取り0回。既存の実writer→本文routeの移行試験も、公開後60秒待ちから1秒待ちに変えて成功した。
+
+今回再実行: pnpm -r testはcore61/Workers136/Node8、計205件成功。pnpm -r --parallel lint、Workers lint:test、pnpm build（core/Web production/Workers dry-run）成功。前回3件の回帰も含む。ログは/tmp/official-origin-pr8-marker-refresh。以前のpnpm一時配置がなかったため指定10.33.0を同ディレクトリへ再取得した。製品依存・lockfileは変更していない。マージ・本番操作は未実施。

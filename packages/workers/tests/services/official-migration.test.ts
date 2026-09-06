@@ -28,7 +28,8 @@ it("migrates legacy metadata, detects same-URL corrections, serves a known previ
   const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(zip(fixture.zipBase64)))
   await publishSnapshot(store, { schemaVersion: 1, generation: "migration-first", works: [first], persons: [], syncedAt: "2026-09-06T00:00:00Z" })
   expect(fetchMock).not.toHaveBeenCalled()
-  vi.setSystemTime(Date.now() + 60_001)
+  // The first request after publication must succeed even with a cached absence.
+  vi.setSystemTime(Date.now() + 1_000)
   const request = () => app.fetch(new Request("http://local/v1/works/047927/content?format=raw"), env)
   const initial = await (await request()).json() as { content: string; delivery: Delivery; work: Work }
   expect(initial.delivery.verification).toBe("current")
