@@ -9,11 +9,11 @@ function toR2Key(sourceUrl: string): string {
   return new URL(sourceUrl).pathname.slice(1)
 }
 
-function decodeContentZip(data: Uint8Array, maxOutputBytes: number): string {
+export function decodeContentZip(data: Uint8Array, maxOutputBytes: number): string {
   return validateText(decode(decompress(data, ".txt", { maxOutputBytes })))
 }
 
-function validateText(text: string): string {
+export function validateText(text: string): string {
   if (!text.trim() || /^\s*(?:<!doctype html|<html[\s>])/i.test(text)) {
     throw new Error("Invalid content text")
   }
@@ -75,6 +75,23 @@ async function loadContent(workId: string, sourceUrl: string, env: Env, key: str
   } catch { /* Continue to the official source. */ }
 
   // Layer 3: the complete distribution URL from metadata
+  const { data, text } = await fetchSource(workId, sourceUrl, env, key, deadline)
+
+  try {
+    await run("r2-write", () => env.R2.put(r2Key, data))
+  } catch {
+    // best-effort: R2 write failure does not block the response
+  }
+
+  try { await run("kv-write", () => env.KV.put(kvKey, text, { expirationTtl: KV_TTL })) } catch {}
+
+  console.info("Content served", { workId, source: "origin", url: sourceUrl })
+  return { text, cacheHit: false }
+}
+
+export async function fetchSource(workId: string, sourceUrl: string, env: Env, key: string, deadline: number) {
+  const bounds = limits(env)
+  const run = <T>(stage: string, operation: () => T | Promise<T>) => contentStage(workId, stage, operation)
   checkCooldown(env, key)
   const data = await contentStage(workId, "origin-fetch", async () => {
     try {
@@ -102,14 +119,5 @@ async function loadContent(workId: string, sourceUrl: string, env: Env, key: str
     }
   })
 
-  try {
-    await run("r2-write", () => env.R2.put(r2Key, data))
-  } catch {
-    // best-effort: R2 write failure does not block the response
-  }
-
-  try { await run("kv-write", () => env.KV.put(kvKey, text, { expirationTtl: KV_TTL })) } catch {}
-
-  console.info("Content served", { workId, source: "origin", url: sourceUrl })
-  return { text, cacheHit: false }
+  return { data, text }
 }

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
-    "test": "vitest run",
+    "test": "vitest run && vitest run --config vitest.node.config.ts",
     "test:watch": "vitest",
     "lint": "tsc --noEmit && tsc --noEmit -p scripts/tsconfig.json",
     "lint:test": "tsc --noEmit -p tests/tsconfig.json",

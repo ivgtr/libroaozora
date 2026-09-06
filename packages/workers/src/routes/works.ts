@@ -2,11 +2,11 @@ import { Hono } from "hono"
 import type { Env } from "../env"
 import { throwHttpError } from "../errors"
 import { parsePagination } from "../lib/pagination"
-import { getWorks } from "../services/metadata"
+import { getWorks, getMetadata } from "../services/metadata"
 import { filterWorks, sortWorks, paginate } from "../services/filter"
 import type { FilterParams } from "../services/filter"
 import { within } from "../services/content-limits"
-import { getContent } from "../services/content"
+import { getVersionedContent } from "../services/content-v2"
 import { formatContent } from "@libroaozora/core"
 import type { ContentFormat } from "@libroaozora/core"
 
@@ -85,14 +85,15 @@ works.get("/works", async (c) => {
 // T013: GET /works/:id (work detail)
 works.get("/works/:id", async (c) => {
   const id = c.req.param("id")
-  const allWorks = await getWorks(c.env)
+  const metadata = await getMetadata(c.env)
+  const allWorks = metadata.works
   const work = allWorks.find((w) => w.id === id)
 
   if (!work) {
     throwHttpError("NOT_FOUND", "Work not found")
   }
 
-  return c.json(work)
+  return c.json({ ...work, metadataGeneration: metadata.generation })
 })
 
 // T012: GET /works/:id/content (work content)
@@ -111,7 +112,8 @@ works.get("/works/:id/content", async (c) => {
     throwHttpError("BAD_REQUEST", `Invalid format: ${format}`)
   }
 
-  const allWorks = await within(() => getWorks(c.env), 5000)
+  const metadata = await within(() => getMetadata(c.env), 5000)
+  const allWorks = metadata.works
   const work = allWorks.find((w) => w.id === id)
 
   if (!work) {
@@ -131,12 +133,15 @@ works.get("/works/:id/content", async (c) => {
     throwHttpError("NOT_FOUND", "Content source not available for this work")
   }
 
-  const { text, cacheHit } = await getContent(id, work.sourceUrls.text, c.env)
+  const { text, cacheHit, delivery } = await getVersionedContent(c.env, work, metadata)
   const content = formatContent(text, format as ContentFormat)
 
+  c.header("Cache-Control", delivery.verification === "current" ? "public, s-maxage=3600" : "no-store")
   c.header("X-Cache-Status", cacheHit ? "HIT" : "MISS")
 
   return c.json({
+    work,
+    delivery,
     workId: id,
     format,
     content,

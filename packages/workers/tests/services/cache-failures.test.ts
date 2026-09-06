@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers"
 import app from "../../src/index"
 import { getContent } from "../../src/services/content"
 import { resetContentControlForTesting } from "../../src/services/content-control"
-import { getMetadata } from "../../src/services/metadata"
+import { getMetadata, resetMetadataForTesting } from "../../src/services/metadata"
 import { METADATA_R2_KEY, META_WORKS_KEY, META_PERSONS_KEY, META_SYNCED_AT_KEY } from "../../src/lib/constants"
 import fixture from "../fixtures/047927.json"
 const source = fixture.metadata.sourceUrls.text
@@ -12,6 +12,7 @@ const zip = () => Uint8Array.from(atob(fixture.zipBase64), c => c.charCodeAt(0))
 const snapshot = () => JSON.stringify({ works: [fixture.metadata], persons: [], syncedAt: "2026-09-06T00:00:00Z" })
 beforeEach(async () => {
   resetContentControlForTesting()
+  resetMetadataForTesting()
   for (const key of ["content:047927", META_WORKS_KEY, META_PERSONS_KEY, META_SYNCED_AT_KEY]) await env.KV.delete(key)
   await env.R2.delete(key)
   await env.R2.delete(METADATA_R2_KEY)
@@ -41,11 +42,11 @@ it("metadata KV failure still reaches the real content route through R2", async 
   await env.R2.put(key, zip())
   vi.spyOn(env.KV, "get").mockRejectedValue(new Error("KV down"))
   vi.spyOn(env.KV, "put").mockRejectedValue(new Error("KV down"))
-  const fetchMock = vi.spyOn(globalThis, "fetch")
+  const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(zip()))
   const response = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
   expect(response.status).toBe(200)
   expect(await response.json()).toHaveProperty("content", fixture.text)
-  expect(fetchMock).not.toHaveBeenCalled()
+  expect(fetchMock).toHaveBeenCalledOnce()
 })
 it("restored metadata still denies copyrighted content", async () => {
   const data = JSON.parse(snapshot())

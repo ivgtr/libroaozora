@@ -40,3 +40,16 @@ Node補助測定のCPU/RSSはNodeプロセスの値。CSV解析は同期ジョ�
 仕様参照: [fflate streaming ZIP](https://github.com/101arrowz/fflate)、[Workers limits](https://developers.cloudflare.com/workers/platform/limits/)。公式の許容レートを上限の根拠にしていない。
 
 最終A/B（CRC/metadata読込共有追加後）の再測定: cold 582.95/434.55ms、KV 102.63/152.87ms、R2 78.41/213.66ms、同時cold 407.82/555.74ms（47927/789）。全て200、cold時各1fetch、KV/R2時0fetch。ログ `worker-measure-final.json`。CPU/ピークメモリは引き続き未計測。
+
+## C最終の全metadata測定
+
+`measure-worker.mjs --v2` の最終結果は [JSON](./official-origin-workerd.json)。新strict parserのdata JSONは12,343,398 bytes、測定用schema/generation付きsnapshotは12,343,481 bytes、17,840作品/1,335人物。本文originは保存済みの実ZIP fixtureであり、公式ネットワークの速度測定ではない。
+
+| 経路 | 47927 wall ms | 789 wall ms | origin fetch数 |
+| --- | ---: | ---: | ---: |
+| cold | 218.26 | 177.00 | 各1 |
+| KV | 5.07 | 62.92 | 0 |
+| R2 | 8.76 | 121.74 | 0 |
+| 異作品同時cold | 15.02 | 132.45 | 各1 |
+
+すべて200、本文UTF-8は6,258/1,120,767 bytes。A/Bとはmetadata保持・版キャッシュ実装とwarm状態が異なるため、この一回の測定を厳密な性能改善率として扱わない。CPU時間・isolateピークメモリは未計測。全CSVをNodeでparseするwriterのRSSとWorkerがsnapshotを読むメモリは別である。本番契約枠への適合はT009/T016で確認する。

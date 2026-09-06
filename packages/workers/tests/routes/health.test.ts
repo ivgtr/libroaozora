@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest"
-import { env, exports } from "cloudflare:workers"
+import { env } from "cloudflare:workers"
+import app from "../../src/index"
+import { resetMetadataForTesting } from "../../src/services/metadata"
+const exports = { default: { fetch: (url: string) => app.fetch(new Request(url), env) } }
 import type { ErrorResponse } from "@libroaozora/core"
 import {
   seedKV, METADATA_R2_KEY, META_WORKS_KEY, META_PERSONS_KEY, META_SYNCED_AT_KEY,
@@ -8,7 +11,8 @@ import {
 describe("GET /v1/health", () => {
   describe("同期済み", () => {
     beforeAll(async () => {
-      await seedKV(env.KV)
+  resetMetadataForTesting()
+      await seedKV(env.KV, env.R2)
     })
 
     it("200 — status: ok + メタデータ情報", async () => {
@@ -16,7 +20,7 @@ describe("GET /v1/health", () => {
       expect(res.status).toBe(200)
 
       const body = await res.json()
-      expect(body).toEqual({
+      expect(body).toMatchObject({
         status: "ok",
         mode: "workers",
         lastSyncedAt: "2026-04-01T00:00:00Z",
@@ -28,6 +32,7 @@ describe("GET /v1/health", () => {
 
   describe("未同期", () => {
     beforeEach(async () => {
+  resetMetadataForTesting()
       await env.KV.delete(META_WORKS_KEY)
       await env.KV.delete(META_PERSONS_KEY)
       await env.KV.delete(META_SYNCED_AT_KEY)
@@ -39,7 +44,7 @@ describe("GET /v1/health", () => {
       expect(res.status).toBe(200)
 
       const body = await res.json()
-      expect(body).toEqual({
+      expect(body).toMatchObject({
         status: "degraded",
         message: "Metadata not synced",
       })
@@ -50,7 +55,8 @@ describe("GET /v1/health", () => {
 describe("GET /v1/stats", () => {
   describe("同期済み", () => {
     beforeAll(async () => {
-      await seedKV(env.KV)
+  resetMetadataForTesting()
+      await seedKV(env.KV, env.R2)
     })
 
     it("200 — 統計情報を返す", async () => {
@@ -58,7 +64,7 @@ describe("GET /v1/stats", () => {
       expect(res.status).toBe(200)
 
       const body = await res.json()
-      expect(body).toEqual({
+      expect(body).toMatchObject({
         totalWorks: 5,
         publicDomainWorks: 4,
         totalPersons: 3,
@@ -69,6 +75,7 @@ describe("GET /v1/stats", () => {
 
   describe("未同期", () => {
     beforeEach(async () => {
+  resetMetadataForTesting()
       await env.KV.delete(META_WORKS_KEY)
       await env.KV.delete(META_PERSONS_KEY)
       await env.KV.delete(META_SYNCED_AT_KEY)

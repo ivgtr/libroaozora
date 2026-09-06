@@ -1,6 +1,6 @@
 # Step 1 実行設計と判断
 
-2026-09-06 JST。未実装。[合意済み計画](./official-origin-plan.md)を具体化する。
+2026-09-06 JST。Step 2のローカル実装に合わせて補足。本番は未反映。[合意済み計画](./official-origin-plan.md)を具体化する。
 調査根拠は [調査記録](./official-origin-research.md)、依存・完了条件は [タスク一覧](./official-origin-tasks.md)。
 
 ## 段階と利用者の到達点
@@ -40,7 +40,7 @@ KVはJSON envelopeのschema・workId・sourceRevision・本文ハッシュ等を
 | データ | 具体形・意味 |
 | --- | --- |
 | Work追加情報 | `textSource: { updatedAt: string|null, revisionCount: number|null }`。旧Workでは省略を許容。`Work.updatedAt`の意味は変更しない |
-| sourceRevision | UTF-8の `JSON.stringify(["aozora-source-v1", 完全URL, 正規化本文更新日またはnull, 非負整数修正回数またはnull])` のSHA-256小文字hex。trim以外にURLのquery/host/pathを捨てない |
+| sourceRevision | UTF-8の `JSON.stringify(["aozora-source-v1", 完全URL, 正規化本文更新日またはnull, 修正回数（非負整数・公式実値-1・欠損null）])` のSHA-256小文字hex。trim以外にURLのquery/host/pathを捨てない |
 | ZIP識別 | `zipHash` = 受信ZIP bytesのSHA-256。R2 customMetadataにsourceUrl、fetchedAt、sourceRevision、zipHash、textHash、decodeVersionを保持 |
 | 本文識別 | `textHash` = デコード後raw文字列のUTF-8 SHA-256。改行等を勝手に正規化しない。`contentId`はdecodeVersionとtextHashから構成 |
 | 表示位置識別 | dayroの `readingContentId` = contentId + `structureVersion`。structureVersionはdayro構造化・前処理・文分割・段落index規則をまとめた明示版。Workersに表示変換を持ち込まない |
@@ -65,7 +65,7 @@ current更新者は一つのworkflowに限定し、手動・定期を同じconcu
 
 readerはcurrentを実行環境内60秒キャッシュし、その世代のKV→同世代R2を使用。作品・人物・同期時刻は常に同じsnapshotから返す。同じ世代の読込みも共有し巨大JSONを無制限に保持しない。現世代を読めない場合はpointerで既知のpreviousを試し、明示的にfallback状態を返す。current自体の通信失敗時は既知の最後の正常pointer/snapshotのみをfallback扱いで使用できる。cold startで参照先が全く不明なら503とし、バケット走査はしない。世代fallback時も同期経過時間だけで提供を自動停止しないが、確認済みとは扱わない。
 
-初回のみ、currentが不存在と確認できた新readerは既存R2 `metadata.json`を一つのlegacy snapshotとして読む。旧KV3キーを合成しない。currentが壊れている/通信失敗の場合に「未移行」と推測してlegacyへ戻さない。初回writerは正常legacy snapshotもimmutable形式で保存しpreviousとして紐付ける。v2運用開始後は旧3キー・metadata.jsonを二重更新しない。
+初回のみ、currentが不存在と確認できた新readerは既存R2 `metadata/all.json`を一つのlegacy snapshotとして読む。旧KV3キーを合成しない。currentが壊れている/通信失敗の場合に「未移行」と推測してlegacyへ戻さない。初回writerは正常legacy snapshotもimmutable形式で保存しpreviousとして紐付ける。v2運用開始後は旧3キー・metadata/all.jsonを二重更新しない。
 
 版不明の旧本文KV/R2を現行版hitとして昇格させない。アクセス時に公式を取得してv2へ保存。一時障害時の旧版候補はprevious snapshotの当該版、現在URLの旧pathnameキー、previous URLの旧pathnameキー、旧 `content:{id}` に限定して重複排除する（最大4系統、一覧走査なし）。旧ZIPは実展開・基本検証、旧KVは基本検証と本文ハッシュ計算を行う。識別子はlegacyの実本文に基づくものとし、sourceRevisionは不明ならnull。旧版を新キーへコピーしない。
 
@@ -124,3 +124,11 @@ Cからstale/unverified/error応答はno-store。Dで正常本文APIをs-maxage=
 ## 工数の再見積もり
 
 1人で既存調査・テストを再利用する暫定値: A 0.5〜1日、B 2〜3日、C 4〜6日、D 3〜5日、段階別の統合検証・運用手順整理1〜2日、合計10.5〜17人日。各機能の単体テストは各段階に含む。本番認証待ち、契約判断待ち、リリース間の監視期間は含まない。Bの制限測定とCの条件付き保存検証で更新する。合意済み計画に記載された2〜4人日を全体見積もりとして用いない。
+
+## Step 2で確認した実データ互換性
+
+保存済み公式CSV全体をstrict検証したところ、本文修正回数 `-1` が4作品（058324・049009・056410・055901）5行に存在した。これを欠損nullへ潰さず版入力として保存する。正規化は非負整数・-1・欠損nullに限定し、-2以下・小数・不正値は拒否する。-1の業務上の意味は断定しない。これは全CSVを拒否せず公式の識別情報を保持するための互換補正で、版方式タグはaozora-source-v1を使う。
+
+役割「その他」6行も正当な入力として検証を通す。人物は保持し、既存core同様に対応外の著者roleへ変換しない。重複作品/人物の内容矛盾、列/行/権利/ID/URL不正は同期公開前に拒否する。legacy R2キーは資料のmetadata.jsonではなく実装上のmetadata/all.jsonであり、移行でも実キーを保持した。
+
+新metadataの全量は17,840作品/1,335人物、data JSON 12,343,398 bytes。ローカルworkerdでsnapshot 12,343,481 bytesのcold/hit/同時要求を確認した。CPU時間・isolateピークメモリは未測定で、本番実行枠適合を断定しない。

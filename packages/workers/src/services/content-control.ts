@@ -12,7 +12,7 @@ export class SourceError extends Error {
 
 type Result = { text: string; cacheHit: boolean }
 type State = {
-  active: Map<string, Promise<Result>>
+  active: Map<string, Promise<unknown>>
   cooldown: Map<string, { until: number; error: SourceError }>
 }
 let states = new WeakMap<Env, State>()
@@ -55,10 +55,10 @@ export function positiveLimit(value: string | undefined, fallback: number): numb
   return Number.isSafeInteger(n) && n > 0 ? n : fallback
 }
 
-export async function shareContent(env: Env, key: string, operation: () => Promise<Result>): Promise<Result> {
+export async function shareContent<T = Result>(env: Env, key: string, operation: () => Promise<T>): Promise<T> {
   const state = stateFor(env)
   const existing = state.active.get(key)
-  if (existing) return existing
+  if (existing) return existing as Promise<T>
   if (state.active.size >= positiveLimit(env.CONTENT_MAX_CONCURRENT, 2)) {
     throw new SourceError("Content concurrency limit reached", "temporary")
   }

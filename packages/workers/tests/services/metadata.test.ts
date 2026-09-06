@@ -1,112 +1,85 @@
-import { describe, it, expect, beforeEach } from "vitest"
-import { env, exports } from "cloudflare:workers"
-import type { ErrorResponse } from "@libroaozora/core"
-import {
-  SEED_WORKS, SEED_PERSONS, SEED_SYNCED_AT, SEED_METADATA_JSON,
-  METADATA_R2_KEY, META_WORKS_KEY, META_PERSONS_KEY, META_SYNCED_AT_KEY,
-} from "../fixtures/seed"
-
-import {
-  getMetadata,
-  getWorks,
-  getPersons,
-} from "../../src/services/metadata"
+import { afterEach, beforeEach, expect, it, vi } from "vitest"
+import { env } from "cloudflare:workers"
+import { sha256 } from "@libroaozora/core"
+import { getMetadata, getWorks, getPersons, resetMetadataForTesting } from "../../src/services/metadata"
+import { CURRENT_KEY, snapshotKey, metadataKey } from "../../src/services/metadata-model"
+import { METADATA_R2_KEY, META_WORKS_KEY } from "../../src/lib/constants"
+import { SEED_WORKS, SEED_PERSONS, SEED_METADATA_JSON } from "../fixtures/seed"
 
 beforeEach(async () => {
-  await env.KV.delete(META_WORKS_KEY)
-  await env.KV.delete(META_PERSONS_KEY)
-  await env.KV.delete(META_SYNCED_AT_KEY)
+  resetMetadataForTesting()
+  await env.R2.delete(CURRENT_KEY)
   await env.R2.delete(METADATA_R2_KEY)
+  for (const id of ["current", "previous"]) { await env.KV.delete(metadataKey(id)); await env.R2.delete(snapshotKey(id)) }
 })
-
-describe("getMetadata", () => {
-  it("KV にデータがある場合キャッシュから返す（syncedAt 含む）", async () => {
-    await env.KV.put(META_WORKS_KEY, JSON.stringify(SEED_WORKS))
-    await env.KV.put(META_PERSONS_KEY, JSON.stringify(SEED_PERSONS))
-    await env.KV.put(META_SYNCED_AT_KEY, SEED_SYNCED_AT)
-
-    const result = await getMetadata(env)
-
-    expect(result.works).toEqual(SEED_WORKS)
-    expect(result.persons).toEqual(SEED_PERSONS)
-    expect(result.syncedAt).toBe(SEED_SYNCED_AT)
-  })
-
-  it("KV に syncedAt がない場合 null を返す", async () => {
-    await env.KV.put(META_WORKS_KEY, JSON.stringify(SEED_WORKS))
-    await env.KV.put(META_PERSONS_KEY, JSON.stringify(SEED_PERSONS))
-
-    const result = await getMetadata(env)
-
-    expect(result.works).toEqual(SEED_WORKS)
-    expect(result.syncedAt).toBeNull()
-  })
-
-  it("KV ミス + R2 ヒット → スナップショット全体を復元（syncedAt 含む）", async () => {
-    await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
-
-    const result = await getMetadata(env)
-
-    expect(result.works).toEqual(SEED_WORKS)
-    expect(result.persons).toEqual(SEED_PERSONS)
-    expect(result.syncedAt).toBe(SEED_SYNCED_AT)
-
-    const storedWorks = await env.KV.get<unknown[]>(META_WORKS_KEY, "json")
-    expect(storedWorks).toEqual(SEED_WORKS)
-
-    const storedSyncedAt = await env.KV.get(META_SYNCED_AT_KEY)
-    expect(storedSyncedAt).toBe(SEED_SYNCED_AT)
-  })
-
-  it("KV ミス + R2 ヒット + KV 書き戻し → R2 は削除しない", async () => {
-    await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
-
-    const result = await getMetadata(env)
-
-    expect(result.works).toEqual(SEED_WORKS)
-
-    const r2Object = await env.R2.get(METADATA_R2_KEY)
-    expect(r2Object).not.toBeNull()
-  })
-
-  it("R2 JSON 破損 → R2 保持 → 503 SERVICE_UNAVAILABLE", async () => {
-    await env.R2.put(METADATA_R2_KEY, "invalid json{{{")
-
-    const res = await exports.default.fetch("http://localhost/v1/works")
-    expect(res.status).toBe(503)
-    const body = (await res.json()) as ErrorResponse
-    expect(body.error.code).toBe("SERVICE_UNAVAILABLE")
-
-    const r2Object = await env.R2.get(METADATA_R2_KEY)
-    expect(r2Object).not.toBeNull()
-  })
-
-  it("KV + R2 ミス → 503 SERVICE_UNAVAILABLE", async () => {
-    const res = await exports.default.fetch("http://localhost/v1/works")
-    expect(res.status).toBe(503)
-    const body = (await res.json()) as ErrorResponse
-    expect(body.error.code).toBe("SERVICE_UNAVAILABLE")
-  })
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers() })
+async function snapshot(generation: string, works = SEED_WORKS) {
+  const text = JSON.stringify({ schemaVersion: 1, generation, works, persons: SEED_PERSONS, syncedAt: "2026-09-06T00:00:00Z" })
+  await env.R2.put(snapshotKey(generation), text)
+  return { generation, digest: await sha256(text) }
+}
+it("uses legacy R2 only when current is confirmed absent, ignoring mixed legacy KV", async () => {
+  await env.KV.put(META_WORKS_KEY, "[]")
+  await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
+  expect(await getMetadata(env)).toMatchObject({ works: SEED_WORKS, persons: SEED_PERSONS, state: "legacy", validatedAt: null })
+  expect(await getWorks(env)).toEqual(SEED_WORKS)
+  expect(await getPersons(env)).toEqual(SEED_PERSONS)
 })
-
-describe("getWorks", () => {
-  it("getMetadata 経由で works を返す", async () => {
-    await env.KV.put(META_WORKS_KEY, JSON.stringify(SEED_WORKS))
-    await env.KV.put(META_PERSONS_KEY, JSON.stringify(SEED_PERSONS))
-
-    const works = await getWorks(env)
-
-    expect(works).toEqual(SEED_WORKS)
-  })
+it("ignores invalid or missing generation KV and reads the same generation from R2", async () => {
+  const current = await snapshot("current")
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current, previous: null }))
+  await env.KV.put(metadataKey("current"), "invalid")
+  expect(await getMetadata(env)).toMatchObject({ generation: "current", state: "current", works: SEED_WORKS })
 })
-
-describe("getPersons", () => {
-  it("getMetadata 経由で persons を返す", async () => {
-    await env.KV.put(META_WORKS_KEY, JSON.stringify(SEED_WORKS))
-    await env.KV.put(META_PERSONS_KEY, JSON.stringify(SEED_PERSONS))
-
-    const persons = await getPersons(env)
-
-    expect(persons).toEqual(SEED_PERSONS)
-  })
+it("explicitly falls back to the previous snapshot without combining data", async () => {
+  const current = await snapshot("current", [])
+  const previous = await snapshot("previous")
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current, previous }))
+  await env.R2.delete(snapshotKey("current"))
+  expect(await getMetadata(env)).toMatchObject({ generation: "previous", works: SEED_WORKS, state: "previous", validatedAt: null })
+})
+it("does not resurrect deleted works from previous metadata", async () => {
+  const current = await snapshot("current", [])
+  const previous = await snapshot("previous")
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current, previous }))
+  expect((await getMetadata(env)).works).toEqual([])
+})
+it("honors the 60-second pointer interval and never advances validatedAt on a cache hit", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] })
+  const current = await snapshot("current")
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current, previous: null }))
+  const first = await getMetadata(env)
+  vi.setSystemTime(Date.now() + 59_999)
+  expect((await getMetadata(env)).validatedAt).toBe(first.validatedAt)
+  vi.setSystemTime(Date.now() + 1)
+  expect((await getMetadata(env)).validatedAt).not.toBe(first.validatedAt)
+})
+it("rejects a malformed pointer at cold start instead of guessing legacy", async () => {
+  await env.R2.put(METADATA_R2_KEY, SEED_METADATA_JSON)
+  await env.R2.put(CURRENT_KEY, "invalid")
+  const del = vi.spyOn(env.R2, "delete")
+  await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
+  expect(del).not.toHaveBeenCalled()
+})
+it("uses last-known data unverified after a pointer transport failure", async () => {
+  const current = await snapshot("current")
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current, previous: null }))
+  await getMetadata(env)
+  vi.useFakeTimers({ toFake: ["Date"] })
+  vi.setSystemTime(Date.now() + 60_001)
+  vi.spyOn(env.R2, "get").mockRejectedValue(new Error("network"))
+  expect(await getMetadata(env)).toMatchObject({ generation: "current", state: "previous", validatedAt: null })
+})
+it("KV exceptions do not prevent loading metadata and R2 body failures never delete data", async () => {
+  const current = await snapshot("current")
+  await env.R2.put(CURRENT_KEY, JSON.stringify({ schemaVersion: 1, current, previous: null }))
+  vi.spyOn(env.KV, "get").mockRejectedValue(new Error("KV down"))
+  expect((await getMetadata(env)).works).toEqual(SEED_WORKS)
+  resetMetadataForTesting()
+  const object = (await env.R2.get(CURRENT_KEY))!
+  vi.spyOn(object, "text").mockRejectedValue(new Error("body failure"))
+  vi.spyOn(env.R2, "get").mockResolvedValue(object)
+  const del = vi.spyOn(env.R2, "delete")
+  await expect(getMetadata(env)).rejects.toHaveProperty("status", 503)
+  expect(del).not.toHaveBeenCalled()
 })

@@ -77,27 +77,27 @@ T009/T017/T023はStep 2以降のリリース作業。コードの検証までを
 
 ## US2 — 訂正を識別し、許可された旧版だけを使う（C）
 
-- [ ] T010 [US2] 本文更新情報・識別契約をcoreへ追加する — `L/packages/core/src/csv-parser.ts`、`types/index.ts`、版識別補助（新規候補）、`tests/csv-parser.test.ts`、識別テスト（新規）、`D/src/types/index.ts`の契約準備。
+- [x] T010 [US2] 本文更新情報・識別契約をcoreへ追加する — `L/packages/core/src/csv-parser.ts`、`types/index.ts`、版識別補助（新規候補）、`tests/csv-parser.test.ts`、識別テスト（新規）、`D/src/types/index.ts`の契約準備。
   **依存:** T008。**作業:** textSource、SHA-256 sourceRevision、decodeVersion/textHash/contentIdを実行設計どおり定義。CSVの本文専用2列を取り込み、欠損はnull、非空不正値/重複行の矛盾を検証対象にする。
   **完了条件・検証:** 同URLで日付/回数変更→版変更、同入力→同版、query/hostの違いを区別。空欄に現在日時を入れない。Work.updatedAtの意味と旧Work互換を維持、coreのNode/Workers両対応。実47927/789列値を小さなCSVフィクスチャに保存して回帰化。
 
-- [ ] T011 [US2] 同期の検証・snapshot公開を実装する — `L/packages/workers/scripts/sync-metadata.ts`、同期補助（新規候補）、`tests/scripts/sync-metadata.test.ts`（新規・Node用test configを分離）、`src/lib/constants.ts`。
+- [x] T011 [US2] 同期の検証・snapshot公開を実装する — `L/packages/workers/scripts/sync-metadata.ts`、同期補助（新規候補）、`tests/scripts/sync-metadata.test.ts`（新規・Node用test configを分離）、`src/lib/constants.ts`。
   **依存:** T010。**作業:** download/validate/publish分離、公式CSV期限/上限・必須列/行/権利/参照検証、R2 snapshotとcurrent/previous、KV同世代保存を実装。初回legacy snapshotをpreviousへ収容。current更新者を同期に限定。
   **完了条件・検証:** fake storageで空/不正CSV・引用符欠損・権利列欠損・部分write・current切替失敗/応答喪失・再実行を検証し、正常pointerを失わない。KV失敗のみなら同世代R2で公開成功。人物の複数行/正常削除を受理。本文URLへのfetchはゼロ。更新情報込みJSON bytesを実測しKV上限内と記録。
 
-- [ ] T012 [US2] 単一世代readerとlegacy移行を実装する — `L/packages/workers/src/services/metadata.ts`、`routes/works.ts` / `persons.ts` / `health.ts`、`tests/services/metadata.test.ts`、ルート全テスト/seed。
+- [x] T012 [US2] 単一世代readerとlegacy移行を実装する — `L/packages/workers/src/services/metadata.ts`、`routes/works.ts` / `persons.ts` / `health.ts`、`tests/services/metadata.test.ts`、ルート全テスト/seed。
   **依存:** T011。**作業:** current60秒、KV generation→同世代R2、previous明示fallback、snapshot shape/digest検証、読込み共有/メモリ保持上限を実装。current不存在のみlegacy R2を利用。health/statsへ世代・同期経過・fallback観測を追加。
   **完了条件・検証:** KV反映遅延・JSON不正・現snapshot喪失・pointer通信失敗・cold start・60秒境界を検証。全ルートで作品と人物を別世代から合成しない。R2通信例外で削除ゼロ。現metadataの作品不存在をpreviousで復活させない。legacyから新形式へ移行しても旧APIの必須形が維持される。
 
-- [ ] T013 [US2] 本文版別保存・条件付き競合処理を実装する — `L/packages/workers/src/services/content.ts` / `content-control.ts`、`tests/services/content*.test.ts`。
+- [x] T013 [US2] 本文版別保存・条件付き競合処理を実装する — `L/packages/workers/src/services/content.ts` / `content-control.ts`、`tests/services/content*.test.ts`。
   **依存:** T010、T005。**作業:** v2キー/envelope/customMetadata、sourceRevision共有キー、R2条件付き新規保存/修復、同一版異ハッシュの保護・記録を実装。旧形式を現行hitとして使わない。
   **完了条件・検証:** 旧版処理が遅く完了しても新版キーを上書きしない。R2条件不成立nullと例外を区別。競合時に負けた本文をKVに上書きしない、同一版ZIP/本文不一致を検知・unverified化。R2/KV片方・両方保存障害で正常本文は返す。KV expiry→同版R2から復元。実workerdで条件付き操作を検証する。
 
-- [ ] T014 [US2] 旧版候補・取得エラーcode・同世代本文応答を実装する — `L/packages/workers/src/services/content.ts`、`routes/works.ts`、`errors.ts`、core型、関連テスト。
+- [x] T014 [US2] 旧版候補・取得エラーcode・同世代本文応答を実装する — `L/packages/workers/src/services/content.ts`、`routes/works.ts`、`errors.ts`、core型、関連テスト。
   **依存:** T012、T013。**作業:** 実行設計の最大4系統候補・エラー表・delivery・本文内workを実装。権利/存在/URL確認後に限り旧版へ進み、実際の本文ID/版を返す。
   **完了条件・検証:** 通信/timeout/429/5xx×旧版有無、403/404/410、URL削除、権利変更、作品削除、新ZIP破損、待機中を表形式で網羅。旧版を新キーに保存しない。metadata previous/legacy・競合をcurrent扱いしない。内部例外非公開、従来raw/plainとX-Cache-Status維持。
 
-- [ ] T015 [US2] 中継の世代統合・互換エラー・旧版no-storeを実装する — `D/src/lib/libroaozora.ts`、`src/types/index.ts`、`src/app/api/works/[id]/route.ts`、`src/__tests__/lib/libroaozora.test.ts` / `api/works-id.test.ts`、`L/packages/web/src/lib/api-client.ts`の互換検証。
+- [x] T015 [US2] 中継の世代統合・互換エラー・旧版no-storeを実装する — `D/src/lib/libroaozora.ts`、`src/types/index.ts`、`src/app/api/works/[id]/route.ts`、`src/__tests__/lib/libroaozora.test.ts` / `api/works-id.test.ts`、`L/packages/web/src/lib/api-client.ts`の互換検証。
   **依存:** T014。**作業:** 本文内workを使う1応答経路、旧上流のdetail補完、delivery/readingContentId伝達を実装。HTTP404/502とerror文字列は維持しcode/retryableを追加。stale/unverified/errorはCからno-store。
   **完了条件・検証:** metadata/detailと本文の世代不一致でも新本文内workで揃う。新版欠損/矛盾は安全なエラー、旧応答はunverified。例外文言を変えても分類が安定。新旧上流×新旧クライアントの契約fixture、実47927構造化が成功。libroデモwebを型/build互換で壊さない。
 
@@ -111,23 +111,23 @@ T009/T017/T023はStep 2以降のリリース作業。コードの検証までを
 
 ## US3 — 開くときに訂正を確認し、読書位置を守る（D）
 
-- [ ] T018 [US3] IndexedDB移行と開くときの再検証を実装する — `D/src/lib/content-cache.ts`、`src/types/index.ts`、`src/__tests__/lib/content-cache.test.ts`。
+- [x] T018 [US3] IndexedDB移行と開くときの再検証を実装する — `D/src/lib/content-cache.ts`、`src/types/index.ts`、`src/__tests__/lib/content-cache.test.ts`。
   **依存:** T015。**作業:** v2読取互換/v3書込、checkedAt/delivery/readingContentId、24h判定、offline/一時失敗fallback、停止検知時無効化、取得共有を実装。transaction完了/abortを扱う。
   **完了条件・検証:** fake-indexeddb+仮想時計でv2移行、checkedAt欠損、24h境界、毎日の閲覧で確認期限を延ばさないこと、CDNの古いvalidatedAt、旧版/metadata fallback/通信失敗でcheckedAtを進めないことを検証。明示停止後offlineで旧本文を復活させない。破損blocks/QuotaExceeded/IDB無効でも適切に取得本文を提供。
 
-- [ ] T019 [US3] 今日・本棚の位置を本文識別子と対応させる — `D/src/lib/reading-state.ts` / `bookshelf.ts`、`src/hooks/useReadingState.ts`、`src/types/index.ts`、関連lib/hookテスト。
+- [x] T019 [US3] 今日・本棚の位置を本文識別子と対応させる — `D/src/lib/reading-state.ts` / `bookshelf.ts`、`src/hooks/useReadingState.ts`、`src/types/index.ts`、関連lib/hookテスト。
   **依存:** T018。**作業:** 全位置保存・再開経路にreadingContentIdを追加し、一致しない/新本文に対して旧位置ID不明の場合は位置のみリセット。お気に入り/読了履歴/累積記録と読書セッションのcompletedを分離して維持する。
   **完了条件・検証:** 今日/本棚、favorite/completed/favorite_completed、旧localStorage、同本文/別本文、構造版のみ変更を検証。古い文番号を別版へ適用しない。beforeunload保存でも本文IDが落ちず、履歴・streak・累積値を消さない。
 
-- [ ] T020 [US3] 表示開始前の切替・通知・読書中固定を統合する — `D/src/components/reading/ReadingClient.tsx` / `ReadingView.tsx`、`src/lib/content-cache.ts`、読み込みUI、コンポーネントテスト（新規）。
+- [x] T020 [US3] 表示開始前の切替・通知・読書中固定を統合する — `D/src/components/reading/ReadingClient.tsx` / `ReadingView.tsx`、`src/lib/content-cache.ts`、読み込みUI、コンポーネントテスト（新規）。
   **依存:** T019、T006。**作業:** 今日/本棚で再検証完了後に表示データと位置を選択、更新時に短い先頭再開通知。表示中の本文を固定し、先読みも新共通キャッシュ経路へ寄せる。
   **完了条件・検証:** 表示前新版→リセット、offline旧版表示中に新版到着→差し替えなし、次の開き直し→新版。本文/位置/通知の整合を確認。今日表示成功後の明日1件、失敗非反復、停止設定を再検証。本文取得期限が実際のloading全体に効く。
 
-- [ ] T021 [US3] 正常CDN方針と検証日時の伝達を完成させる — `D/src/app/api/works/[id]/route.ts`、`src/lib/libroaozora.ts` / `content-cache.ts`、APIテスト、両repo運用文書。
+- [x] T021 [US3] 正常CDN方針と検証日時の伝達を完成させる — `D/src/app/api/works/[id]/route.ts`、`src/lib/libroaozora.ts` / `content-cache.ts`、APIテスト、両repo運用文書。
   **依存:** T018、T015。**作業:** 正常応答を1h、24h SWRを削除。stale/unverified/errorのno-storeを維持。Next側fetchとブラウザfetchのcache設定を明示し、delivery時刻をそのまま伝達。旧CDNオブジェクトの失効手順を具体化。
   **完了条件・検証:** 正常/旧版/未検証/エラーのheaderを比較。CDN hitをブラウザの現在時刻の検証成功にしない。todayの日付キャッシュは維持。既存CDNの失効方式/待機条件を環境に合わせて記録。
 
-- [ ] T022 [US3] 訂正・停止・位置移行を全層で検証する — 両repo統合fixture/テスト、`L/docs/investigations/official-origin-release.md`、Dのコンポーネントテスト/ブラウザ検証記録。
+- [x] T022 [US3] 訂正・停止・位置移行を全層で検証する — 両repo統合fixture/テスト、`L/docs/investigations/official-origin-release.md`、Dのコンポーネントテスト/ブラウザ検証記録。
   **依存:** T020、T021。**作業:** 公式CSV更新をfixtureで投入し、snapshot→版cache→中継→IDB→表示を検証。仮想時計で日次同期・current60秒・CDN1h・checkedAt24hの重なり、同期停止、提供停止を確認。実ブラウザで本棚/今日・offline・開き直しを確認する。
   **完了条件・検証:** 閲覧した作品だけ次アクセスで更新、読書中不変、旧版非誤認、位置リセットと履歴保持が一連で成功。全test/lint/型/build成功。実ブラウザ検証の方法と結果を記録し、厳密な反映SLAや未閲覧/offline端末の即時更新を保証しない。
 
@@ -149,4 +149,16 @@ T009/T017/T023はStep 2以降のリリース作業。コードの検証までを
 
 ## Step 2進捗（2026-09-06 JST）
 
-T001〜T008はA/Bのローカル実装・検証完了。本番適合はT009未完。証拠は `L/docs/official-origin/step2-log.md` と `L/docs/investigations/official-origin-release.md`。CPU/isolate peak memory・本番binding/SHAは未確認。C/Dへはこの固定A/B候補から進める。
+| タスク | 状態と証拠 |
+| --- | --- |
+| T001〜T008 | A/Bのローカル実装・検証済み。先行候補archiveを固定してからCへ進行 |
+| T009 | 未完。本番認証・binding・契約枠・CPU/isolate peak memoryと公開承認待ち |
+| T010〜T015 | Cのローカル実装・検証済み。公式全CSV検証、実workerd条件付き保存、移行/競合/同世代応答、C中継単独候補の164 tests/build成功 |
+| T016 | 統合試験と復旧手順は完成。新metadata量・経過時間を再測定済みだがCPU/isolate peak memory未測定のためチェックは未完のまま |
+| T017 | reader→手動writer→中継→日次の公開手順を準備。本番未実施。writer gate未設定、cronは手動成功まで無効 |
+| T018〜T022 | Dのローカル実装・検証済み。181 tests、lint/type/build、全層実ブラウザ7シナリオ成功。T021は新deployment切替/purge/待機手順を文書化し、実環境の対象確定と実行はT023へ残す |
+| T023 | 未完。本番D公開・CDN切替/失効確認・本番全層疎通待ち |
+
+チェック済みはローカル変更と検証を示し、本番完了を意味しない。T016の実行枠確認を未完のまま、独立に実施可能なDのローカル作業を継続した。公開時はT009→T016受入れ→T017→T023の依存を守る。
+
+証拠は `L/docs/official-origin/step2-log.md`、`L/docs/investigations/official-origin-release.md`（A/B）、`L/docs/investigations/official-origin-cd-release.md`（C/D）、`L/docs/investigations/official-origin-browser/README.md`。GitHub認証/Production履歴は読めたがCloudflare直接認証・workflow repository secrets/variablesは未設定。未保存の過去版、同期停止、未閲覧/offline端末への即時更新は保証しない。

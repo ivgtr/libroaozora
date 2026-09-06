@@ -1,7 +1,7 @@
 # Step 1 調査記録
 
-2026-09-06 JST。調査・設計・タスク化のみ実施。プロダクトコード、既存の暫定差分、本番データは変更していない。
-範囲の正本は [合意済み計画](./official-origin-plan.md)。具体的な判断は [実行設計](./official-origin-design.md)、実装は次回の [タスク一覧](./official-origin-tasks.md) に従う。
+2026-09-06 JST。以下はStep 1時点の記録で、Step 2の現状はタスク一覧と実装記録を参照。Step 1では調査・設計・タスク化のみ実施。プロダクトコード、既存の暫定差分、本番データは変更していない。
+範囲の正本は [合意済み計画](./official-origin-plan.md)。具体的な判断は [実行設計](./official-origin-design.md)、実装は [タスク一覧](./official-origin-tasks.md) に従う。
 
 ## 調査の境界と指示
 

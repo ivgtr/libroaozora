@@ -1,5 +1,6 @@
 // Types
 export type {
+  Delivery,
   Role,
   ContentFormat,
   ErrorCode,
@@ -30,3 +31,6 @@ export { parseStructured } from "./parser.js"
 
 // CSV Parser
 export { parseCSV } from "./csv-parser.js"
+
+export { sha256, sourceRevision, sourceDate, sourceCount, contentIdentifier, DECODE_VERSION } from "./revision.js"
+export { csvParse } from "./lib/csv-parse.js"

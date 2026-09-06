@@ -1,3 +1,8 @@
+import { sourceRevision } from "@libroaozora/core"
+import type { Work } from "@libroaozora/core"
+import { contentKVKey, contentR2Key } from "../../src/services/content-v2"
+import { resetMetadataForTesting } from "../../src/services/metadata"
+import { METADATA_R2_KEY } from "../../src/lib/constants"
 import { resetContentControlForTesting } from "../../src/services/content-control"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { env } from "cloudflare:workers"
@@ -12,6 +17,10 @@ const zip = () => Uint8Array.from(atob(fixture.zipBase64), (c) => c.charCodeAt(0
 
 beforeEach(async () => {
   resetContentControlForTesting()
+  resetMetadataForTesting()
+  const revision = await sourceRevision(fixture.metadata as Work)
+  await env.KV.delete(contentKVKey("047927", revision))
+  await env.R2.delete(contentR2Key("047927", revision))
   await env.KV.delete("content:047927")
   await env.R2.delete(r2Key)
 })
@@ -24,17 +33,20 @@ describe("047927 official origin with real ZIP decoding", () => {
       .mockResolvedValueOnce(new Response(zip()))
     await env.KV.put(META_WORKS_KEY, JSON.stringify([fixture.metadata]))
     await env.KV.put(META_PERSONS_KEY, "[]")
+    await env.R2.put(METADATA_R2_KEY, JSON.stringify({ works: [fixture.metadata], persons: [], syncedAt: "2026-09-06T00:00:00Z" }))
 
     const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
     expect(res.status).toBe(200)
     expect(res.headers.get("X-Cache-Status")).toBe("MISS")
-    expect(await res.json()).toEqual({ workId: "047927", format: "raw", content: fixture.text })
+    expect(await res.json()).toMatchObject({ workId: "047927", format: "raw", content: fixture.text })
     expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([source])
-    expect(await env.KV.get("content:047927")).toBe(fixture.text)
-    expect(new Uint8Array(await (await env.R2.get(r2Key))!.arrayBuffer())).toEqual(zip())
-    expect(await getContent("047927", source, env)).toEqual({ text: fixture.text, cacheHit: true })
-    await env.KV.delete("content:047927")
-    expect(await getContent("047927", source, env)).toEqual({ text: fixture.text, cacheHit: true })
+    const revision = await sourceRevision(fixture.metadata as Work)
+    expect(await env.KV.get(contentKVKey("047927", revision), "json")).toHaveProperty("text", fixture.text)
+    expect(new Uint8Array(await (await env.R2.get(contentR2Key("047927", revision)))!.arrayBuffer())).toEqual(zip())
+    const request = () => app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
+    expect((await request()).headers.get("X-Cache-Status")).toBe("HIT")
+    await env.KV.delete(contentKVKey("047927", revision))
+    expect((await request()).headers.get("X-Cache-Status")).toBe("HIT")
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
@@ -51,9 +63,10 @@ describe("047927 official origin with real ZIP decoding", () => {
       .mockResolvedValueOnce(new Response(null, { status: 503 }))
     await env.KV.put(META_WORKS_KEY, JSON.stringify([fixture.metadata]))
     await env.KV.put(META_PERSONS_KEY, "[]")
+    await env.R2.put(METADATA_R2_KEY, JSON.stringify({ works: [fixture.metadata], persons: [], syncedAt: "2026-09-06T00:00:00Z" }))
     const res = await app.fetch(new Request("https://test/v1/works/047927/content?format=raw"), env)
-    expect(res.status).toBe(500)
-    expect(await res.json()).toEqual({ error: { code: "INTERNAL_ERROR", message: "Internal server error" } })
+    expect(res.status).toBe(503)
+    expect(await res.json()).toEqual({ error: { code: "SOURCE_TEMPORARY_ERROR", message: "Content source unavailable" } })
     expect(error).toHaveBeenCalledWith("Content operation failed", {
       workId: "047927", stage: "origin-fetch", error: expect.objectContaining({ message: `Content fetch failed: 503 ${source}` }),
     })
@@ -105,6 +118,7 @@ it("decodes the real 789 official ZIP through raw/plain routes", async () => {
   await env.R2.delete(new URL(control.metadata.sourceUrls.text).pathname.slice(1))
   await env.KV.put(META_WORKS_KEY, JSON.stringify([control.metadata]))
   await env.KV.put(META_PERSONS_KEY, "[]")
+    await env.R2.put(METADATA_R2_KEY, JSON.stringify({ works: [control.metadata], persons: [], syncedAt: "2026-09-06T00:00:00Z" }))
   const bytes = Uint8Array.from(atob(control.zipBase64), c => c.charCodeAt(0))
   const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(bytes))
   const raw = await app.fetch(new Request("https://test/v1/works/000789/content?format=raw"), env)

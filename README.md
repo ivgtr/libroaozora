@@ -31,8 +31,8 @@ Base: `/v1`
 
 | ストレージ | 役割 | 内容 |
 |---|---|---|
-| KV | ホットキャッシュ（TTL 30 日） | メタデータ JSON・本文テキスト |
-| R2 | 永続ストア | メタデータ JSON・本文 zip |
+| KV | ホットキャッシュ（TTL 30 日） | 世代別メタデータ JSON・版別本文envelope |
+| R2 | 永続ストア | current/previous pointer・immutable snapshot・版別本文 zip |
 
 ## セットアップ
 
@@ -92,13 +92,15 @@ pnpm --filter @libroaozora/workers run deploy
 
 ## メタデータ同期
 
-デプロイ後、メタデータの同期を実行する必要があります。同期を行うまで `/v1/works`・`/v1/persons`・`/v1/stats` は 503 を返し、`/v1/health` は `status: "degraded"` を返します。
+新旧形式を読めるWorkerを先に公開してから、GitHub Actionsの直列workflowで同期します。未同期でlegacy R2もない場合、作品・人物・statsは503、healthはdegradedです。
+
+リポジトリsecret `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`KV_NAMESPACE_ID` を対象bindingに合わせ、reader公開確認後にvariable `OFFICIAL_METADATA_WRITER_ENABLED=true` を設定します。本番反映の承認後、default branchで実行します。
 
 ```bash
-KV_NAMESPACE_ID=<your-kv-namespace-id> pnpm --filter @libroaozora/workers run sync
+gh workflow run sync-metadata.yml --ref main
 ```
 
-同期スクリプトは青空文庫の CSV をダウンロード・パースし、R2 と KV にメタデータを書き込みます。GitHub Actions の手動トリガー（`workflow_dispatch`）でも実行できます。
+公式CSVの検証→immutable snapshotの保存・読戻し→同世代KV→current/previous pointerの順で公開します。旧metadata KV3キーは更新しません。初回は既存R2 `metadata/all.json` をpreviousに収容します。直接remote同期は廃止し、スクリプト単体実行をガードしています。手動成功後、workflow内の毎日03:00 UTC（12:00 JST）のscheduleを有効化します。現在は誤った順序で公開しないようscheduleを無効にしています。
 
 ## ライセンス
 
@@ -108,4 +110,4 @@ MIT
 
 本文とメタデータCSVは青空文庫の配布URLから直接取得します。本文はAPIアクセス時にKV→R2→配布元の順に取得し、保存だけの障害では正常本文を返します。本文TTLは30日、R2 ZIPは期限なしです。
 
-A/Bの設定・検証・本番反映の前提は [リリース記録](docs/investigations/official-origin-release.md)、[上限の測定](docs/investigations/official-origin-limits.md) を参照してください。更新版への対応とブラウザ再検証は続くC/D段階です。
+A/Bの設定・検証・本番反映の前提は [リリース記録](docs/investigations/official-origin-release.md)、[上限の測定](docs/investigations/official-origin-limits.md) を参照してください。C/Dの実装・検証は [Step 2記録](docs/official-origin/step2-log.md)、公開順序・復旧は [C/Dリリース資料](docs/investigations/official-origin-cd-release.md) を参照してください。本番は未反映です。

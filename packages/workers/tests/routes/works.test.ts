@@ -1,11 +1,15 @@
 import { describe, it, expect, beforeAll } from "vitest"
-import { env, exports } from "cloudflare:workers"
+import { env } from "cloudflare:workers"
+import app from "../../src/index"
+import { resetMetadataForTesting } from "../../src/services/metadata"
+const exports = { default: { fetch: (url: string) => app.fetch(new Request(url), env) } }
 import type { SearchResult, Work, WorkContent, ErrorResponse } from "@libroaozora/core"
-import { seedKV } from "../fixtures/seed"
+import { seedKV, seedContent } from "../fixtures/seed"
 
 beforeAll(async () => {
-  await seedKV(env.KV)
-  await env.KV.put("content:001000", "テスト本文テキスト")
+  resetMetadataForTesting()
+  await seedKV(env.KV, env.R2)
+  await seedContent(env.KV)
 })
 
 describe("GET /v1/works", () => {

@@ -3,15 +3,17 @@
  * ヘッダー行をキーとしたオブジェクト配列を返す。
  * ランタイム非依存（new Function / eval 不使用）。
  */
-export function csvParse(text: string): Record<string, string>[] {
-  const rows = parseRows(text)
+export function csvParse(text: string, strict = false): Record<string, string>[] {
+  const rows = parseRows(text, strict)
   if (rows.length === 0) return []
 
   const headers = rows[0]
+  if (strict && new Set(headers).size !== headers.length) throw new Error("Duplicate CSV header")
   const result: Record<string, string>[] = []
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i]
+    if (strict && row.length !== headers.length) throw new Error(`CSV column count at row ${i + 1}`)
     const obj: Record<string, string> = {}
     for (let j = 0; j < headers.length; j++) {
       obj[headers[j]] = row[j] ?? ""
@@ -22,13 +24,13 @@ export function csvParse(text: string): Record<string, string>[] {
   return result
 }
 
-function parseRows(text: string): string[][] {
+function parseRows(text: string, strict: boolean): string[][] {
   const rows: string[][] = []
   const len = text.length
   let pos = 0
 
   while (pos <= len) {
-    const { fields, nextPos } = parseRow(text, pos, len)
+    const { fields, nextPos } = parseRow(text, pos, len, strict)
     rows.push(fields)
     pos = nextPos
     if (pos > len) break
@@ -49,6 +51,7 @@ function parseRow(
   text: string,
   start: number,
   len: number,
+  strict: boolean,
 ): { fields: string[]; nextPos: number } {
   const fields: string[] = []
   let pos = start
@@ -63,7 +66,7 @@ function parseRow(
 
     if (ch === '"') {
       // Quoted field
-      const { value, nextPos } = parseQuotedField(text, pos + 1, len)
+      const { value, nextPos } = parseQuotedField(text, pos + 1, len, strict)
       fields.push(value)
       pos = nextPos
 
@@ -71,6 +74,7 @@ function parseRow(
         pos++
         continue
       }
+      if (strict && pos < len && text[pos] !== "\r" && text[pos] !== "\n") throw new Error("Invalid CSV quoted field")
       // End of row (newline or EOF)
       if (pos < len && text[pos] === "\r") pos++
       if (pos < len && text[pos] === "\n") pos++
@@ -82,6 +86,7 @@ function parseRow(
     while (pos < len && text[pos] !== "," && text[pos] !== "\r" && text[pos] !== "\n") {
       pos++
     }
+    if (strict && text.slice(fieldStart, pos).includes('"')) throw new Error("Quote in unquoted CSV field")
     fields.push(text.slice(fieldStart, pos))
 
     if (pos < len && text[pos] === ",") {
@@ -102,6 +107,7 @@ function parseQuotedField(
   text: string,
   start: number,
   len: number,
+  strict: boolean,
 ): { value: string; nextPos: number } {
   let pos = start
   let value = ""
@@ -124,6 +130,7 @@ function parseQuotedField(
     }
   }
 
+  if (strict) throw new Error("Unterminated CSV quote")
   // Unterminated quote — return what we have
   return { value, nextPos: pos }
 }

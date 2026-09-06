@@ -1,76 +1,40 @@
 import { pathToFileURL } from "node:url"
+import { randomUUID } from "node:crypto"
+import { decompress } from "@libroaozora/core"
 import { downloadMetadata } from "./download-metadata"
-import { execFileSync } from "node:child_process"
-import { writeFileSync, unlinkSync } from "node:fs"
-import { join } from "node:path"
-import { tmpdir } from "node:os"
-import { decompress, parseCSV } from "@libroaozora/core"
-import {
-  METADATA_R2_KEY,
-  META_WORKS_KEY,
-  META_PERSONS_KEY,
-  META_SYNCED_AT_KEY,
-  METADATA_TTL,
-} from "../src/lib/constants"
+import { publishSnapshot, validateCSV } from "./metadata-sync"
+import type { MetadataStore } from "./metadata-sync"
 
-const R2_BUCKET = "libroaozora-data"
-
-function getNamespaceId(): string {
-  const id = process.env.KV_NAMESPACE_ID
-  if (!id) {
-    throw new Error("KV_NAMESPACE_ID environment variable is required")
+/** One serialized GitHub workflow is the only remote writer. Import has no effects. */
+export async function main(): Promise<void> {
+  if (process.env.GITHUB_ACTIONS !== "true") throw new Error("Run metadata publication through the serialized GitHub workflow")
+  const token = process.env.CLOUDFLARE_API_TOKEN
+  const account = process.env.CLOUDFLARE_ACCOUNT_ID
+  const namespace = process.env.KV_NAMESPACE_ID
+  const bucket = process.env.R2_BUCKET ?? "libroaozora-data"
+  if (!token || !account || !namespace) throw new Error("Cloudflare token, account ID and KV namespace are required")
+  const startedAt = new Date().toISOString()
+  console.info("Metadata sync started", { startedAt })
+  const zip = await downloadMetadata()
+  const csv = new TextDecoder("utf-8", { fatal: true }).decode(decompress(zip, ".csv", { maxOutputBytes: 64 * 1024 * 1024 }))
+  const data = validateCSV(csv)
+  const request = async (path: string, method: "GET" | "PUT", body?: string) => {
+    const response = await fetch(`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(account)}${path}`, {
+      method, body, headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" }, signal: AbortSignal.timeout(30_000),
+    })
+    if (method === "GET" && response.status === 404) { await response.body?.cancel(); return null }
+    if (!response.ok) { await response.body?.cancel(); throw new Error(`Cloudflare storage ${method} failed: ${response.status}`) }
+    return response.text()
   }
-  return id
-}
-
-function wranglerR2Put(key: string, data: string): void {
-  execFileSync("wrangler", ["r2", "object", "put", `${R2_BUCKET}/${key}`, "--pipe", "--remote"], {
-    input: data,
-    stdio: ["pipe", "inherit", "inherit"],
-  })
-}
-
-function wranglerKvPut(namespaceId: string, key: string, value: string, ttl?: number): void {
-  const tmpFile = join(tmpdir(), `kv-${key.replace(/:/g, "-")}-${Date.now()}.json`)
-  try {
-    writeFileSync(tmpFile, value, "utf8")
-    const args = ["kv", "key", "put", "--namespace-id", namespaceId, key, "--path", tmpFile]
-    if (ttl) args.push("--ttl", String(ttl))
-    execFileSync("wrangler", args, { stdio: "inherit" })
-  } finally {
-    try { unlinkSync(tmpFile) } catch {}
+  const objectPath = (key: string) => `/r2/buckets/${encodeURIComponent(bucket)}/objects/${key.split("/").map(encodeURIComponent).join("/")}`
+  const store: MetadataStore = {
+    readR2: key => request(objectPath(key), "GET"),
+    writeR2: async (key, value) => { await request(objectPath(key), "PUT", value) },
+    writeKV: async (key, value, ttl) => { await request(`/storage/kv/namespaces/${encodeURIComponent(namespace)}/values/${encodeURIComponent(key)}?expiration_ttl=${ttl}`, "PUT", value) },
   }
+  await publishSnapshot(store, { schemaVersion: 1, generation: `${Date.now()}-${randomUUID()}`, ...data, syncedAt: startedAt })
 }
-
-async function main(): Promise<void> {
-  const namespaceId = getNamespaceId()
-
-  console.log("Downloading CSV zip...")
-  const zipData = await downloadMetadata()
-  console.log(`Downloaded ${zipData.byteLength} bytes`)
-
-  console.log("Parsing CSV...")
-  const csvText = new TextDecoder().decode(decompress(zipData, ".csv"))
-  const { works, persons } = parseCSV(csvText)
-  console.log(`Parsed ${works.length} works, ${persons.length} persons`)
-
-  const syncedAt = new Date().toISOString()
-  const json = JSON.stringify({ works, persons, syncedAt })
-
-  console.log("Writing to R2...")
-  wranglerR2Put(METADATA_R2_KEY, json)
-  console.log("R2 write complete")
-
-  console.log("Writing to KV...")
-  wranglerKvPut(namespaceId, META_WORKS_KEY, JSON.stringify(works), METADATA_TTL)
-  wranglerKvPut(namespaceId, META_PERSONS_KEY, JSON.stringify(persons), METADATA_TTL)
-  wranglerKvPut(namespaceId, META_SYNCED_AT_KEY, syncedAt)
-  console.log("KV write complete")
-
-  console.log(`Sync complete: ${works.length} works, ${persons.length} persons`)
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch((err) => {
-  console.error("Sync failed:", err)
-  process.exit(1)
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main().catch(error => {
+  console.error("Metadata sync failed", { failedAt: new Date().toISOString(), error })
+  process.exitCode = 1
 })
