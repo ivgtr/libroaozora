@@ -1,5 +1,7 @@
 # C/Dリリース準備・復旧手順
 
+> 過去の計画・検証記録です。以下の「未反映」「未認証」等は記録当時の状態です。後続の公開・復旧と残件は [2026-09-08の確認状態](../official-origin/status-2026-09-08.md) を参照してください。
+
 2026-09-06 JST。ローカル実装と統合検証済み。本番デプロイ・同期・設定変更・CDN purgeは未実施。正本は [計画](../official-origin/official-origin-plan.md)、判断と結果は [Step 2記録](../official-origin/step2-log.md)。
 
 ## 固定候補と公開順序
