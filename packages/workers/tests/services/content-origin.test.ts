@@ -55,6 +55,12 @@ describe("047927 official origin with real ZIP decoding", () => {
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(zip()))
     expect(await getContent("047927", source, env)).toEqual({ text: fixture.text, cacheHit: false })
     expect(fetchMock).toHaveBeenCalledOnce()
+    expect(fetchMock).toHaveBeenCalledWith(source, expect.objectContaining({
+      headers: {
+        Accept: "application/zip, application/octet-stream;q=0.9, */*;q=0.1",
+        "Accept-Encoding": "identity",
+      },
+    }))
   })
 
   it("records the final origin failure without disclosing it in the API body", async () => {

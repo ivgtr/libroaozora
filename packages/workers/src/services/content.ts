@@ -6,6 +6,10 @@ import type { Env } from "../env"
 import { SourceError, shareContent, checkCooldown, recordFailure, retryAfterMs } from "./content-control"
 
 const KV_TTL = 2_592_000 // 30 days in seconds
+const OFFICIAL_ORIGIN_HEADERS = {
+  Accept: "application/zip, application/octet-stream;q=0.9, */*;q=0.1",
+  "Accept-Encoding": "identity",
+}
 
 function toR2Key(sourceUrl: string): string {
   return new URL(sourceUrl).pathname.slice(1)
@@ -147,7 +151,7 @@ export async function fetchSource(workId: string, sourceUrl: string, env: Env, k
     const signal = AbortSignal.timeout(Math.max(1, Math.min(10_000, deadline - Date.now())))
     let response: Response
     try {
-      response = await fetch(url, { signal })
+      response = await fetch(url, { signal, headers: OFFICIAL_ORIGIN_HEADERS })
     } catch (cause) {
       logOriginFailure(workId, url, "headers", startedAt, signal, cause)
       const error = new SourceError("Content network or timeout failure", "temporary", undefined, 60_000, { cause })
