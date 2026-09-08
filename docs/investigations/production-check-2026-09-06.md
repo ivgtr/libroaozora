@@ -86,3 +86,11 @@ R2をremote GETし、metadata/current.jsonとmetadata/migrated.jsonは指定キ�
 header-stageのネットワーク失敗とbody-stageのストリーム失敗をworkerdテストへ追加。既存の公開APIエラー契約、失敗後60秒のcooldown、HTTP status分類を維持する。公開時は現行v2 reader version `044bc2a0-0cf7-4179-b7d4-e97f0a523a8d`を復旧先とし、旧v1 readerへは戻さない。診断結果を得るまで、期限延長・再試行・外部中継・メタデータ同期は実施しない。
 
 実装後の確認: Workers 152件、Node同期8件、Workers本体/test型チェック、dry-run成功。dry-runはローカルのplaceholder bindingを使うため、本番binding検証ではない。実公開時は確認済みのKV `858bc608ca7446649aa4475cff24982a`、R2 `libroaozora-data`、custom domain `lb-api.ivgtr.me`を明示したignored設定を使い、`--keep-vars`で既存の管理画面変数を維持する。
+
+### 診断結果
+
+PR #10をmainへマージ後、2026-09-08にWorker version `82f17160-70d9-4949-85ac-31982eac8c71`を公開。既存KV/R2/custom domainと`--keep-vars`を維持し、同期・writer有効化・期限変更・cache削除は実施していない。
+
+47927を1回要求したTailの構造化ログでは、`originHost=www.aozora.gr.jp`、`phase=headers`、`elapsedMs=10000`、`signalAborted=true`、`abortReason=TimeoutError`だった。`Content origin response`は出ず、HTTP応答ヘッダー、ZIP本文、保存の各段階には到達していない。Worker wall timeは10,906ms、CPU timeは175ms、未捕捉例外なし。端末からの同ZIP取得はHTTP200/約0.15秒を維持している。
+
+判定: 47927の失敗は、Workerから公式サイトへの応答ヘッダー待ちがコード上限10秒を超えたことによる。原因はWorkerのcache・ZIP変換・R2/KV・HTTP status応答ではない。次の修正候補は、全体20秒の範囲でヘッダー待ち期限を延ばして実測すること、またはWorker送信元の通信経路/公式側受入れを確認すること。再試行や外部中継は、この検証だけでは採用しない。
