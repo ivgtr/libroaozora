@@ -75,6 +75,42 @@ describe("047927 official origin with real ZIP decoding", () => {
     expect(await env.R2.get(r2Key)).toBeNull()
   })
 
+  it("logs a sanitized header-stage network failure", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    vi.spyOn(globalThis, "fetch").mockRejectedValueOnce(
+      new TypeError("Network connection lost: https://www.aozora.gr.jp/private?token=secret"),
+    )
+
+    await expect(getContent("047927", source, env)).rejects.toHaveProperty("kind", "temporary")
+
+    expect(log).toHaveBeenCalledWith("Official origin fetch failed", expect.objectContaining({
+      workId: "047927",
+      originHost: "www.aozora.gr.jp",
+      phase: "headers",
+      signalAborted: false,
+      error: {
+        name: "TypeError",
+        message: "Network connection lost: [url]",
+      },
+    }))
+  })
+
+  it("logs a body-stage failure after receiving official response headers", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(new ReadableStream({
+      start(controller) { controller.error(new Error("origin body interrupted")) },
+    })))
+
+    await expect(getContent("047927", source, env)).rejects.toHaveProperty("kind", "temporary")
+
+    expect(log).toHaveBeenCalledWith("Official origin fetch failed", expect.objectContaining({
+      workId: "047927",
+      originHost: "www.aozora.gr.jp",
+      phase: "body",
+      error: { name: "Error", message: "origin body interrupted" },
+    }))
+  })
+
   it.each([403, 404, 410, 500])("does not retry official %s", async (status) => {
     vi.spyOn(console, "error").mockImplementation(() => {})
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(null, { status }))
