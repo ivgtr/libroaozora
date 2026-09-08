@@ -22,6 +22,52 @@ export function validateText(text: string): string {
   return text
 }
 
+type OriginFailure = {
+  name: string
+  message: string
+  kind?: SourceError["kind"]
+  status?: number
+  cause?: OriginFailure
+}
+
+function safeErrorMessage(value: unknown): string {
+  return String(value)
+    .replace(/https?:\/\/[^\s]+/g, "[url]")
+    .slice(0, 240)
+}
+
+function describeOriginFailure(error: unknown, depth = 0): OriginFailure {
+  if (error instanceof SourceError) {
+    return { name: error.name, message: safeErrorMessage(error.message), kind: error.kind, status: error.status }
+  }
+  if (error instanceof Error) {
+    const cause = depth === 0 && error.cause !== undefined
+      ? describeOriginFailure(error.cause, depth + 1)
+      : undefined
+    return { name: error.name, message: safeErrorMessage(error.message), ...(cause ? { cause } : {}) }
+  }
+  return { name: typeof error, message: safeErrorMessage(error) }
+}
+
+function logOriginFailure(
+  workId: string,
+  sourceUrl: string,
+  phase: "headers" | "body",
+  startedAt: number,
+  signal: AbortSignal,
+  error: unknown,
+): void {
+  console.error("Official origin fetch failed", {
+    workId,
+    originHost: new URL(sourceUrl).hostname,
+    phase,
+    elapsedMs: Math.round(performance.now() - startedAt),
+    signalAborted: signal.aborted,
+    ...(signal.aborted ? { abortReason: describeOriginFailure(signal.reason) } : {}),
+    error: describeOriginFailure(error),
+  })
+}
+
 async function contentStage<T>(
   workId: string,
   stage: string,
@@ -96,21 +142,33 @@ export async function fetchSource(workId: string, sourceUrl: string, env: Env, k
   const run = <T>(stage: string, operation: () => T | Promise<T>) => contentStage(workId, stage, operation)
   checkCooldown(env, key)
   const data = await contentStage(workId, "origin-fetch", async () => {
-    try {
     const url = sourceUrl
+    const startedAt = performance.now()
     const signal = AbortSignal.timeout(Math.max(1, Math.min(10_000, deadline - Date.now())))
-    const response = await fetch(url, { signal })
+    let response: Response
+    try {
+      response = await fetch(url, { signal })
+    } catch (cause) {
+      logOriginFailure(workId, url, "headers", startedAt, signal, cause)
+      const error = new SourceError("Content network or timeout failure", "temporary", undefined, 60_000, { cause })
+      recordFailure(env, key, error)
+      throw error
+    }
     console.info("Content origin response", { workId, url, status: response.status })
     if (!response.ok) {
       await response.body?.cancel().catch(() => {})
-      throw new SourceError(`Content fetch failed: ${response.status} ${url}`,
+      const error = new SourceError(`Content fetch failed: ${response.status} ${url}`,
         response.status === 429 || response.status >= 500 ? "temporary" : "unavailable",
         response.status, response.status === 429 ? retryAfterMs(response.headers.get("Retry-After")) : 60_000)
-
+      logOriginFailure(workId, url, "headers", startedAt, signal, error)
+      recordFailure(env, key, error)
+      throw error
     }
-    return await readBounded(response.body, bounds.zipBytes, signal)
+    try {
+      return await readBounded(response.body, bounds.zipBytes, signal)
     } catch (cause) {
-      const error = cause instanceof SourceError ? cause : new SourceError("Content network or timeout failure", "temporary", undefined, 60_000, { cause })
+      logOriginFailure(workId, url, "body", startedAt, signal, cause)
+      const error = new SourceError("Content network or timeout failure", "temporary", undefined, 60_000, { cause })
       recordFailure(env, key, error)
       throw error
     }
