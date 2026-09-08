@@ -23,7 +23,7 @@ pnpm lint         # 型チェック
 
 ## 仕様書
 
-公開手順は [README.md](README.md)、公式取得移行の設計・調査記録は [docs/official-origin/README.md](docs/official-origin/README.md) を参照。`.docs/` は Git 管理外のローカル資料であり、通常の checkout に存在する前提にしない。実装は仕様の要件に従い、仕様と実装が矛盾する場合は仕様を正とする。ただし、履歴に記載された当時の公開状態は現在の状態と区別する。
+公開手順は [README.md](README.md)、本文API・メタデータの設計は [docs/architecture.md](docs/architecture.md) を参照。`.docs/` は Git 管理外のローカル資料であり、通常の checkout に存在する前提にしない。実装は仕様の要件に従い、仕様と実装が矛盾する場合は仕様を正とする。
 
 ## 制約
 
