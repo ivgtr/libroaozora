@@ -24,14 +24,14 @@ Base: `/v1`
 | GET | `/persons` | 人物一覧（`name` でフィルタ。`sort`, `page`, `per_page` 対応） |
 | GET | `/persons/:id` | 人物詳細 |
 | GET | `/persons/:id/works` | 人物の関連作品（`page`, `per_page` 対応） |
-| GET | `/health` | ヘルスチェック（常に 200、未同期時は `status: "degraded"`） |
-| GET | `/stats` | 統計情報（未同期時は 503） |
+| GET | `/health` | ヘルスチェック（メタデータ取得不可時も 200 / `status: "degraded"`。鮮度は `metadataState`・`lastSyncedAt` で確認） |
+| GET | `/stats` | 統計情報（メタデータ取得不可時は 503） |
 
 ## ストレージ構成
 
 | ストレージ | 役割 | 内容 |
 |---|---|---|
-| KV | ホットキャッシュ（TTL 30 日） | 世代別メタデータ JSON・版別本文envelope |
+| KV | ホットキャッシュ（メタデータは3日、本文は30日） | 世代別メタデータ JSON・版別本文envelope |
 | R2 | 永続ストア | current/previous pointer・immutable snapshot・版別本文 zip |
 
 ## セットアップ
@@ -40,7 +40,6 @@ Node.js 22以上、pnpm 10.33.0を使用してください（Wranglerの実行�
 
 ```bash
 pnpm install
-pnpm build
 ```
 
 ### Workers の設定
@@ -51,22 +50,29 @@ pnpm build
    cp packages/workers/wrangler.toml.example packages/workers/wrangler.toml
    ```
 
-2. Cloudflare リソースを作成
+2. `packages/workers/` でインストール済みの Wrangler を使い、認証と Cloudflare リソースの作成を行う
 
    ```bash
-   wrangler kv namespace create libroaozora-kv
-   wrangler r2 bucket create libroaozora-data
+   cd packages/workers
+   node node_modules/wrangler/bin/wrangler.js login
+   node node_modules/wrangler/bin/wrangler.js whoami
+   node node_modules/wrangler/bin/wrangler.js kv namespace create libroaozora-kv --config wrangler.toml
+   node node_modules/wrangler/bin/wrangler.js r2 bucket create libroaozora-data --config wrangler.toml
+   cd ../..
    ```
 
-3. KV 作成時に表示される namespace ID を `wrangler.toml` の `kv_namespaces.id` に記入（R2 の bucket 名は example の既定値と一致するためそのまま使用）
+3. 対象の Cloudflare account ID を `packages/workers/wrangler.toml` のトップレベルの `account_id` に、KV 作成時の namespace ID を `kv_namespaces.id` に記入する。複数 account がある場合は、リソース作成前に `account_id` を設定する（R2 の bucket 名は example の既定値と一致するためそのまま使用）。
 
 ### Web UI の設定
 
-```bash
-cp packages/web/.env.local.example packages/web/.env.local
+`packages/web/.env.local` を作成し、次を設定します。
+
+```dotenv
+API_BASE_URL=http://localhost:8787
+NEXT_PUBLIC_BASE_URL=http://localhost:3000
 ```
 
-`API_BASE_URL` に Workers の URL を設定してください。ローカル開発時は `http://localhost:8787`、本番環境ではデプロイ済みの URL を指定します。
+本番環境では `API_BASE_URL` に Workers の URL、`NEXT_PUBLIC_BASE_URL` に Web UI の公開 URL を指定します。設定後、リポジトリルートで `pnpm build` を実行してください。
 
 ## 開発
 
@@ -87,29 +93,25 @@ pnpm lint
 ## デプロイ
 
 ```bash
-pnpm --filter @libroaozora/workers run deploy
+cd packages/workers
+node node_modules/wrangler/bin/wrangler.js deploy --name libroaozora --config wrangler.toml --keep-vars
+cd ../..
 ```
 
 ## メタデータ同期
 
-新旧形式を読めるWorkerを先に公開してから、GitHub Actionsの直列workflowで同期します。未同期でlegacy R2もない場合、作品・人物・statsは503、healthはdegradedです。
+メタデータは青空文庫の公式CSVから取得し、[GitHub Actions](.github/workflows/sync-metadata.yml) で同期します。本文は同期対象に含まず、本文APIへのアクセス時に取得します。
 
-リポジトリsecret `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`KV_NAMESPACE_ID` を対象bindingに合わせ、reader公開確認後にvariable `OFFICIAL_METADATA_WRITER_ENABLED=true` を設定します。本番反映の承認後、default branchで実行します。
+Worker をデプロイした後、同じ account・KV を指すリポジトリ secrets `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`KV_NAMESPACE_ID` と、variable `OFFICIAL_METADATA_WRITER_ENABLED=true` を設定します。workflow の同期先 R2 bucket は `libroaozora-data` です。別名を使う場合は workflow の同期ステップに環境変数 `R2_BUCKET` を追加してください。トークンには対象の R2 オブジェクトと KV の読み書き権限が必要です。
+
+デフォルトブランチ（このリポジトリでは `main`）から手動実行します。
 
 ```bash
 gh workflow run sync-metadata.yml --ref main
 ```
 
-公式CSVの検証→immutable snapshotの保存・読戻し→同世代KV→current/previous pointerの順で公開します。旧metadata KV3キーは更新しません。初回は既存R2 `metadata/all.json` をpreviousに収容します。直接remote同期は廃止し、スクリプト単体実行をガードしています。手動成功後、workflow内の毎日03:00 UTC（12:00 JST）のscheduleを有効化します。現在は誤った順序で公開しないようscheduleを無効にしています。
+同期スクリプトは GitHub Actions 経由で実行します。定期実行は workflow 内でコメントアウトされており、手動同期の成功後に毎日03:00 UTC（12:00 JST）の schedule を有効化できます。読み出せるメタデータがない場合、作品・人物・stats API は503、health は `degraded` を返します。
 
 ## ライセンス
 
 MIT
-
-## 公式取得への移行
-
-本文とメタデータCSVは青空文庫の配布URLから直接取得します。本文はAPIアクセス時にKV→R2→配布元の順に取得し、保存だけの障害では正常本文を返します。本文TTLは30日、R2 ZIPは期限なしです。
-
-A/Bの設定・検証・本番反映の前提は [リリース記録](docs/investigations/official-origin-release.md)、[上限の測定](docs/investigations/official-origin-limits.md) を参照してください。C/Dの実装・検証は [Step 2記録](docs/official-origin/step2-log.md)、公開順序・復旧は [C/Dリリース資料](docs/investigations/official-origin-cd-release.md) を参照してください。本番は未反映です。
-
-メタデータ移行後は `metadata/migrated.json` を保持し、current消失を初回移行として扱わないようにしています。マーカーは初回current公開より先に保存するため、初回公開の途中失敗でもlegacyへ戻さず、保存済みsnapshotからpointerを復旧します。マーカーを削除せず、詳細はC/Dリリース資料に従ってください。

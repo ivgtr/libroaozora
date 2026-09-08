@@ -23,7 +23,7 @@ pnpm lint         # 型チェック
 
 ## 仕様書
 
-`.docs/` 配下にフェーズごとの仕様書がある。実装は仕様書に忠実に行う。仕様と実装が矛盾する場合は仕様書を正とする。
+公開手順は [README.md](README.md)、本文API・メタデータの設計は [docs/architecture.md](docs/architecture.md) を参照。`.docs/` は Git 管理外のローカル資料であり、通常の checkout に存在する前提にしない。実装は仕様の要件に従い、仕様と実装が矛盾する場合は仕様を正とする。
 
 ## 制約
 
