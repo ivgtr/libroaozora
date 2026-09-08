@@ -7,8 +7,8 @@ import { SourceError, shareContent, checkCooldown, recordFailure, retryAfterMs }
 
 const KV_TTL = 2_592_000 // 30 days in seconds
 const OFFICIAL_ORIGIN_HEADERS = {
-  Accept: "application/zip, application/octet-stream;q=0.9, */*;q=0.1",
-  "Accept-Encoding": "identity",
+  // Requests without a User-Agent can be redirected to the retired mirror.
+  "User-Agent": "libroaozora/0.1 (+https://lb-api.ivgtr.me)",
 }
 
 function toR2Key(sourceUrl: string): string {
