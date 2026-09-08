@@ -105,11 +105,3 @@ gh workflow run sync-metadata.yml --ref main
 ## ライセンス
 
 MIT
-
-## 公式取得への移行
-
-本文とメタデータCSVは青空文庫の配布URLから直接取得します。本文はAPIアクセス時にKV→R2→配布元の順に取得し、保存だけの障害では正常本文を返します。本文TTLは30日、R2 ZIPは期限なしです。
-
-A/Bの設定・検証・本番反映の前提は [リリース記録](docs/investigations/official-origin-release.md)、[上限の測定](docs/investigations/official-origin-limits.md) を参照してください。C/Dの実装・検証は [Step 2記録](docs/official-origin/step2-log.md)、公開順序・復旧は [C/Dリリース資料](docs/investigations/official-origin-cd-release.md) を参照してください。本番は未反映です。
-
-メタデータ移行後は `metadata/migrated.json` を保持し、current消失を初回移行として扱わないようにしています。マーカーは初回current公開より先に保存するため、初回公開の途中失敗でもlegacyへ戻さず、保存済みsnapshotからpointerを復旧します。マーカーを削除せず、詳細はC/Dリリース資料に従ってください。
